@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CINE ARK | ULTIMATE AURA</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&family=Bangers&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#3a0000">
+    <link rel="apple-touch-icon" href="icone.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --bg-dark: #020202; --blood-dark: #3a0000; --blood-fresh: #cc0000; --void-purple: #3a0066; }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--bg-dark); color: white; overflow-x: hidden; }
+
+        .splash-screen {
+            position: fixed; inset: 0; background: radial-gradient(circle, #1a0000 0%, #000 80%); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1), visibility 2s;
+            cursor: pointer; overflow: hidden;
+        }
+        .splash-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        
+        .ritual-container {
+            position: relative; width: 450px; height: 450px; margin-bottom: 2rem;
+            display: flex; align-items: center; justify-content: center;
+            perspective: 1000px;
+        }
+
+        .pentagram-overlay {
+            position: absolute; width: 100%; height: 100%;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 2 L63 38 L100 38 L70 60 L82 96 L50 74 L18 96 L30 60 L0 38 L37 38 Z' fill='none' stroke='%23300' stroke-width='0.5'/%3E%3C/svg%3E");
+            opacity: 0.3; animation: pulse-brand 4s ease-in-out infinite;
+        }
+
+        .inner-brand {
+            position: absolute; font-family: 'Bangers'; font-size: 3.5rem;
+            color: #300; letter-spacing: 5px; z-index: 50;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            animation: pulse-brand 7s ease-in-out infinite;
+            pointer-events: none; user-select: none;
+        }
+
+        .runes-layer { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .layer-outer { width: 100%; height: 100%; animation: rotate-runes 60s linear infinite; }
+        .layer-mid { width: 75%; height: 75%; animation: rotate-runes 40s linear infinite reverse; border: 1px double rgba(255, 0, 0, 0.1); }
+        .layer-inner { width: 50%; height: 50%; animation: rotate-runes 20s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
+        .rune-text {
+            position: absolute; color: #ff0000; font-size: 1.2rem;
+            text-shadow: 0 0 10px #ff0000; opacity: 0.6; transition: all 0.5s;
+        }
+
+        .floating-rune {
+            position: absolute; color: #cc0000; font-weight: 900; pointer-events: none;
+            text-shadow: 0 0 30px rgba(255,0,0,0.5); transition: transform 0.2s ease-out;
+        }
+
+        .ember {
+            position: absolute; bottom: 50%; left: 50%; width: 3px; height: 3px;
+            background: #ff4500; border-radius: 50%; filter: blur(1px) drop-shadow(0 0 5px #f00);
+            animation: ember-rise linear infinite; opacity: 0;
+        }
+
+        @keyframes ember-rise {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translate(calc(-50% + var(--x)), -180px) scale(0); opacity: 0; }
+        }
+
+        .blood-curtain { position: fixed; top: -100%; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, #400, #900, transparent); z-index: 10000; pointer-events: none; transition: top 1.2s cubic-bezier(0.95, 0.05, 0.795, 0.035); }
+        .blood-curtain.active { top: 100%; }
+        .blood-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; overflow: hidden; }
+        .drop { position: absolute; top: -250px; background: linear-gradient(to bottom, transparent, var(--blood-dark), var(--blood-fresh)); border-radius: 0 0 100px 100px; animation: viscous-drip linear infinite; }
+        
+        @keyframes viscous-drip { 0% { transform: translateY(0); opacity: 0; } 100% { transform: translateY(125vh); opacity: 0; } }
+        @keyframes rotate-runes { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse-brand { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } }
+
+        .sinister-msg {
+            font-family: 'Bangers'; font-size: 1.8rem; color: #cc0000; text-transform: uppercase;
+            letter-spacing: 5px; text-align: center; padding: 0 30px; z-index: 20;
+            animation: blood-pulse-text 5s infinite; min-height: 3rem;
+        }
+        @keyframes blood-pulse-text {
+            0%, 100% { opacity: 0.1; filter: blur(12px); transform: scale(1.5); }
+            50% { opacity: 1; filter: blur(0px); transform: scale(1); text-shadow: 0 0 30px #f00; }
+        }
+
+        .lvl-up-overlay { position: fixed; inset: 0; background: radial-gradient(circle, rgba(255,0,0,0.3) 0%, rgba(0,0,0,0.95) 100%); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .lvl-text { font-family: 'Bangers'; font-size: 6rem; color: #ff0000; text-shadow: 0 0 40px #f00; animation: bounceGrow 1s infinite; }
+        @keyframes bounceGrow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        
+        .blood-title { font-family: 'Bangers', cursive; font-size: 4.5rem; background: linear-gradient(to bottom, #500 20%, #f00 50%, #111 90%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0px 6px 4px rgba(0,0,0,1)); letter-spacing: 12px; }
+        .xp-bar { height: 8px; background: #080808; border-radius: 10px; width: 260px; border: 1px solid #200; overflow: hidden; }
+        .xp-fill { height: 100%; background: linear-gradient(90deg, #400, #f00, #ff5555); box-shadow: 0 0 15px #f00; transition: width 1s cubic-bezier(0.22, 1, 0.36, 1); }
+        .mission-card { background: linear-gradient(145deg, #0a0a0a, #050505); border: 1px solid #1a0000; transition: 0.3s; }
+        .movie-card { background: rgba(6, 6, 6, 0.98); border-radius: 1rem; transition: 0.4s; border: 1px solid #111; position: relative; }
+        .aura-high { box-shadow: 0 0 30px var(--blood-fresh); border-color: var(--blood-fresh); }
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 40%, 60% { transform: translate3d(3px, 0, 0); } }
+        .fab { position: fixed; bottom: 25px; right: 20px; z-index: 1000; width: 65px; height: 65px; border-radius: 50%; background: linear-gradient(135deg, #800, #000); border: 2px solid #f00; }
+        .click-prompt { position: absolute; bottom: 60px; font-size: 10px; color: #500; letter-spacing: 10px; text-transform: uppercase; font-weight: 900; animation: blink 2.5s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+    </style>
+</head>
+
+<body :class="{'shake': isShaking}" class="pb-24">
+    <div id="blood-container" class="blood-screen"></div>
+
+    <div id="app">
+        <div :class="['blood-curtain', isExiting ? 'active' : '']"></div>
+
+        <div :class="['splash-screen', !isRitualLoading ? 'splash-hidden' : '']" @mousemove="parallaxRunes" @click="endRitual">
+            <div v-for="(rs, i) in runeStyles" :key="'fr'+i" class="floating-rune font-serif" :style="rs">
+                {{ ['ᚦ','ᚱ','ᚫ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ'][i % 22] }}
+            </div>
+            <div class="ritual-container">
+                <div class="pentagram-overlay"></div>
+                <div class="inner-brand">CINE ARK</div>
+                <div class="runes-layer layer-outer"><span v-for="n in 12" class="rune-text" :style="getCirclePos(n, 12, 210)">ᚦ</span></div>
+                <div class="runes-layer layer-mid"><span v-for="n in 8" class="rune-text" :style="getCirclePos(n, 8, 150)">ᛟ</span></div>
+                <div class="runes-layer layer-inner"><span v-for="n in 6" class="rune-text" :style="getCirclePos(n, 6, 100)">ᛗ</span></div>
+                <div class="embers-container">
+                    <div class="ember" v-for="n in 12" :key="'emb'+n" :style="{ '--x': (Math.random() * 120 - 60) + 'px', 'animation-duration': (1.5 + Math.random() * 2) + 's', 'animation-delay': (Math.random() * 2) + 's' }"></div>
+                </div>
+            </div>
+            <div class="sinister-msg">{{ currentSinisterMsg }}</div>
+            <div class="click-prompt" v-if="readyToEnter">Toque para selar o pacto de sangue</div>
+        </div>
+
+        <audio id="snd-slash" src="https://www.myinstants.com/media/sounds/knife-slash.mp3"></audio>
+        <audio id="snd-hell" src="https://www.myinstants.com/media/sounds/hell-laugh.mp3"></audio>
+
+        <div v-if="showLevelUp" class="lvl-up-overlay" @click="showLevelUp = false">
+            <span class="text-white tracking-[1em] text-xs mb-4 uppercase">Evolução de Aura</span>
+            <div class="lvl-text">{{ rankTitle }}</div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-6 py-10 relative z-10">
+            <header class="mb-12 flex flex-col items-center">
+                <div class="flex justify-between w-full mb-8 items-center">
+                    <button v-if="userSession" @click="exportData" class="text-[10px] text-zinc-700 hover:text-red-500 uppercase font-black">Exportar</button>
+                    <div v-else class="w-10"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[14px] text-red-600 font-black uppercase">{{ rankTitle }}</span>
+                        <div class="xp-bar mt-2"><div class="xp-fill" :style="{ width: xpPercent + '%' }"></div></div>
+                    </div>
+                    <label v-if="userSession" class="text-[10px] text-zinc-700 hover:text-red-500 uppercase font-black cursor-pointer">
+                        Importar <input type="file" @change="importData" class="hidden">
+                    </label>
+                    <div v-else class="w-10"></div>
+                </div>
+                <h1 @click="secretClickCount++" class="blood-title italic cursor-pointer select-none">CINE ARK</h1>
+            </header>
+
+            <section class="mb-12">
+                <h2 class="text-[12px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 text-center">Missões do Vazio</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div v-for="m in dailyMissions" :key="m.id" :class="['mission-card p-4 rounded-2xl flex items-center justify-between', m.completed ? 'opacity-40 grayscale' : '']">
+                        <div>
+                            <p class="text-[10px] font-bold text-zinc-400 uppercase">{{ m.text }}</p>
+                            <p class="text-[8px] text-red-700 font-black">{{ m.progress }}/{{ m.goal }} • +{{ m.xp }} XP</p>
+                        </div>
+                        <i :class="m.completed ? 'fa-solid fa-check-double text-red-600' : 'fa-solid fa-skull text-zinc-800'"></i>
+                    </div>
+                </div>
+            </section>
+
+            <div class="flex flex-col md:flex-row gap-6 mb-12 items-center justify-between">
+                <div class="flex gap-2 overflow-x-auto pb-2">
+                    <button v-for="f in ['Todos', 'lendo', 'lido', 'pretendo']" @click="currentFilter = f" :class="['px-4 py-2 rounded-lg text-[10px] font-black uppercase border', currentFilter === f ? 'bg-red-700 text-white border-red-500' : 'bg-black text-zinc-600 border-zinc-900']">
+                        {{ f === 'lendo' ? 'Em Ritual' : f === 'lido' ? 'Ceifados' : f === 'pretendo' ? 'Na Mira' : 'Todos' }}
+                    </button>
+                </div>
+                <input v-model="localSearch" placeholder="BUSCAR NO SUBMUNDO..." class="w-full max-w-xs bg-black border border-red-900/30 p-3 rounded-xl text-xs text-red-500 outline-none">
+            </div>
+
+            <main class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <div v-for="(item, index) in filteredCatalog" :key="index" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
+                    <div class="relative aspect-[2/3] bg-zinc-900">
+                        <img :src="item.poster" loading="lazy" class="w-full h-full object-cover grayscale-[0.6] group-hover:grayscale-0 transition duration-700">
+                        <div class="absolute bottom-0 left-0 w-full h-1 bg-black/50">
+                            <div class="h-full bg-red-600 shadow-[0_0_8px_#f00]" :style="{ width: Math.min(100, (item.currentcount / (item.totalcount || 1) * 100)) + '%' }"></div>
+                        </div>
+                        <button v-if="userSession" @click="removeEntry(index)" class="absolute top-2 right-2 w-6 h-6 bg-black text-red-700 rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition">✕</button>
+                    </div>
+                    <div class="p-3 bg-black">
+                        <h3 @click="userSession ? editEntry(item) : null" :class="['text-[9px] font-black uppercase truncate mb-3 transition-colors', userSession ? 'cursor-pointer hover:text-red-600 text-zinc-400' : 'text-zinc-600']">
+                            {{ item.title }}
+                            <i v-if="userSession" class="fa-solid fa-pen-to-square ml-1 text-[7px] opacity-30"></i>
+                        </h3>
+                        <div v-if="userSession" class="flex items-center justify-between">
+                            <button @click="updateStep(index, -1)" class="w-7 h-7 bg-red-950/10 rounded border border-red-900/20">-</button>
+                            <span class="text-[10px] font-black text-red-600">{{ item.currentcount }}/{{ item.totalcount || '?' }}</span>
+                            <button @click="updateStep(index, 1)" class="w-7 h-7 bg-red-950/10 rounded border border-red-900/20">+</button>
+                        </div>
+                        <div v-else class="text-center py-1">
+                             <span class="text-[10px] font-black text-red-600/60">{{ item.currentcount }}/{{ item.totalcount || '?' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <button v-if="userSession" @click="openModal" class="fab text-white flex items-center justify-center shadow-lg"><i class="fa-solid fa-plus text-2xl"></i></button>
+
+        <div v-if="showModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/98 backdrop-blur-xl">
+            <div class="bg-[#080808] w-full max-w-sm rounded-[2rem] p-8 border border-red-900/40">
+               <h2 class="text-2xl font-black italic text-red-700 mb-6 text-center uppercase">{{ isEditing ? 'Alterar Destino' : 'Selo de Invocação' }}</h2>
+                <div class="space-y-4">
+                    <input v-model="newItem.title" @input="debounceBusca" placeholder="NOME DO SELO" class="w-full bg-black p-4 rounded-xl border border-red-900/20 text-xs text-white outline-none">
+                    <div v-if="searchResults.length" class="max-h-40 overflow-y-auto bg-zinc-950 rounded-xl">
+                        <div v-for="res in searchResults" @click="selectResult(res)" class="p-3 border-b border-zinc-900 flex items-center cursor-pointer hover:bg-red-950/20">
+                            <img :src="res.images.webp.small_image_url" class="w-8 h-10 object-cover mr-2">
+                            <span class="text-[9px] font-bold text-zinc-300 uppercase">{{ res.title }}</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <select v-model="newItem.type" class="bg-black p-3 rounded-xl border border-red-900/20 text-[10px] text-red-500 font-bold">
+                            <option>Anime</option><option>Mangá</option>
+                        </select>
+                        <select v-model="newItem.status" class="bg-black p-3 rounded-xl border border-red-900/20 text-[10px] text-red-500 font-bold">
+                            <option value="lendo">Assistindo</option>
+                            <option value="lido">Concluído</option>
+                            <option value="pretendo">Na Mira</option>
+                        </select>
+                    </div>
+                    <button @click="saveEntry" class="w-full py-4 bg-red-900 hover:bg-red-700 rounded-xl font-black text-xs uppercase shadow-[0_0_20px_rgba(150,0,0,0.3)]">
+                        {{ isEditing ? 'Confirmar Alteração' : 'Selo Concluído' }}
+                    </button>
+                    <button @click="closeModal" class="w-full text-zinc-800 text-[12px] font-black uppercase">Cancelar Ritual</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function createBloodRain() {
+            const container = document.getElementById('blood-container');
+            for(let i=0; i < 40; i++) {
+                const drop = document.createElement('div');
+                drop.className = 'drop';
+                drop.style.left = Math.random() * 100 + '%';
+                drop.style.animationDuration = (Math.random() * 8 + 4) + 's';
+                drop.style.width = '1px'; 
+                drop.style.height = (Math.random() * 200 + 100) + 'px';
+                container.appendChild(drop);
+            }
+        }
+        createBloodRain();
+
+        const _supabase = supabase.createClient(
+            'https://mdhtjszfehivxnyzgotl.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaHRqc3pmZWhpdnhueXpnb3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTcyMzMsImV4cCI6MjA4NjQ3MzIzM30.Nkebv7WVRjYznIZddAKikX3cdKkFoNFjoIonlptARMo'
+        );
+
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    secretClickCount: 0,
+                    userSession: null,
+                    isEditing: false,
+                    editingId: null,
+                    isRitualLoading: true, readyToEnter: false, isExiting: false,
+                    currentSinisterMsg: "Iniciando rituais...",
+                    sinisterPhrases: ["Drenando o vazio...","As runas chamam...","Invocando almas...","Selando o pacto...","Aura em ressonância...","Não há volta..."],
+                    showModal: false, showLevelUp: false, isShaking: false,
+                    currentFilter: 'Todos', localSearch: '', searchResults: [],
+                    newItem: { title: '', type: 'Anime', poster: '', currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
+                    catalog: [],
+                    xp: 0,
+                    dailyMissions: [],
+                    runeStyles: Array.from({length: 22}, () => ({
+                        top: Math.random() * 100 + '%',
+                        left: Math.random() * 100 + '%',
+                        fontSize: (Math.random() * 20 + 15) + 'px',
+                        opacity: Math.random() * 0.5 + 0.2,
+                        transform: 'translate(0,0)'
+                    }))
+                }
+            },
+            computed: {
+                level() { return Math.floor(this.xp / 100) + 1; },
+                xpPercent() { return this.xp % 100; },
+                rankTitle() {
+                    const titles = ['ERRANTE','CAMINHANTE','LORDE','ENTIDADE','ARCANGELO','ABISMO','ETERNIDADE'];
+                    return titles[Math.min(titles.length - 1, Math.floor((this.level - 1) / 10))];
+                },
+                filteredCatalog() {
+                    let list = this.catalog;
+                    if (this.currentFilter !== 'Todos') list = list.filter(i => i.status === this.currentFilter);
+                    if (this.localSearch) list = list.filter(i => i.title.toLowerCase().includes(this.localSearch.toLowerCase()));
+                    return list;
+                }
+            },
+            watch: {
+                secretClickCount(val) {
+                    if (val >= 5) {
+                        this.loginRitual();
+                        this.secretClickCount = 0;
+                    }
+                }
+            },
+            async mounted() {
+                this.startRitual();
+                
+                // ESCUTA ATIVA DA SESSÃO
+                _supabase.auth.onAuthStateChange((event, session) => {
+                    this.userSession = session;
+                    if(session) console.log("Arconte Autenticado.");
+                });
+
+                await this.fetchFromSupabase();
+                this.initMissions();
+            },
+            methods: {
+                async loginRitual() {
+                    const email = prompt("E-mail do Arconte:");
+                    if(!email) return;
+                    const password = prompt("Chave do Abismo:");
+                    
+                    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+                    if (error) alert("Acesso negado. A escuridão te rejeita.");
+                    else alert("Pacto confirmado.");
+                },
+
+                editEntry(item) {
+                    if(!this.userSession) return;
+                    this.isEditing = true;
+                    this.editingId = item.id;
+                    this.newItem = { ...item };
+                    this.showModal = true;
+                },
+
+                async updateStep(index, amount) {
+                    if(!this.userSession) return;
+                    const item = this.filteredCatalog[index];
+                    const novoValor = Math.max(0, (item.currentcount || 0) + amount);
+
+                    const { error } = await _supabase
+                        .from('itens_catalogo')
+                        .update({ currentcount: novoValor })
+                        .eq('id', item.id);
+
+                    if (!error) {
+                        item.currentcount = novoValor;
+                        this.xp += 5;
+                        this.playSound('snd-slash');
+                        this.checkMissions(); 
+                    }
+                },
+
+                async removeEntry(index) {
+                    if(!this.userSession) return;
+                    if(confirm('Deseja banir esta alma do catálogo?')) {
+                        const item = this.filteredCatalog[index];
+                        const { error } = await _supabase.from('itens_catalogo').delete().eq('id', item.id);
+                        if (!error) {
+                            this.catalog = this.catalog.filter(i => i.id !== item.id);
+                            this.playSound('snd-slash');
+                        }
+                    }
+                },
+
+                async saveEntry() {
+                    if(!this.userSession) return alert("Apenas o Arconte possui este poder.");
+                    if (!this.newItem.title) return alert("Dê um nome ao pacto!");
+                    
+                    try {
+                        if (this.isEditing) {
+                            const { data, error } = await _supabase.from('itens_catalogo').update(this.newItem).eq('id', this.editingId).select();
+                            if (error) throw error;
+                            const idx = this.catalog.findIndex(i => i.id === this.editingId);
+                            if (idx !== -1) this.catalog[idx] = data[0];
+                        } else {
+                            const { data, error } = await _supabase.from('itens_catalogo').insert([this.newItem]).select();
+                            if (error) throw error;
+                            this.catalog.unshift(data[0]);
+                        }
+                        this.closeModal(); 
+                        this.playSound('snd-slash');
+                    } catch (err) { alert("Falha: " + err.message); }
+                },
+
+                async debounceBusca() {
+                    clearTimeout(this.timer);
+                    if (this.newItem.title.length < 3) { this.searchResults = []; return; }
+                    this.timer = setTimeout(async () => {
+                        try {
+                            const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(this.newItem.title)}&limit=5`);
+                            const data = await response.json();
+                            this.searchResults = data.data || [];
+                        } catch (e) { console.error(e); }
+                    }, 600);
+                },
+
+                selectResult(res) {
+                    this.newItem.title = res.title;
+                    this.newItem.poster = res.images.webp.large_image_url;
+                    this.newItem.totalcount = res.episodes || 0;
+                    this.searchResults = [];
+                },
+
+                getCirclePos(n, total, radius) {
+                    const angle = (n / total) * (Math.PI * 2);
+                    return { transform: `translate(${Math.cos(angle) * radius}px, ${Math.sin(angle) * radius}px)` };
+                },
+
+                parallaxRunes(e) {
+                    const x = (window.innerWidth / 2 - e.pageX) / 50;
+                    const y = (window.innerHeight / 2 - e.pageY) / 50;
+                    this.runeStyles.forEach(s => s.transform = `translate(${x}px, ${y}px)`);
+                },
+
+                playSound(id) {
+                    const audio = document.getElementById(id);
+                    if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
+                },
+
+                endRitual() {
+                    if(this.readyToEnter) {
+                        this.playSound('snd-hell');
+                        this.isExiting = true;
+                        setTimeout(() => this.isRitualLoading = false, 1200);
+                    }
+                },
+
+                startRitual() {
+                    let i = 0;
+                    const interval = setInterval(() => {
+                        this.currentSinisterMsg = this.sinisterPhrases[i % this.sinisterPhrases.length];
+                        i++;
+                        if(i > 4) this.readyToEnter = true;
+                        if(!this.isRitualLoading) clearInterval(interval);
+                    }, 1500);
+                },
+
+                async fetchFromSupabase() {
+                    const { data } = await _supabase.from('itens_catalogo').select('*').order('created_at', { ascending: false });
+                    if (data) this.catalog = data;
+                },
+
+                getAura(rating) { return rating >= 9 ? 'aura-high' : ''; },
+                closeModal() {
+                    this.showModal = false; this.isEditing = false; this.editingId = null;
+                    this.newItem = { title: '', type: 'Anime', poster: '', currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' };
+                },
+                initMissions() {
+                    this.dailyMissions = [
+                        { id: 1, text: "Consumir Almas", progress: 0, goal: 3, xp: 30, completed: false },
+                        { id: 2, text: "Expandir o Vazio", progress: 0, goal: 1, xp: 50, completed: false }
+                    ];
+                },
+                checkMissions() {
+                    const m = this.dailyMissions[0];
+                    if(m && !m.completed) { m.progress++; if(m.progress >= m.goal) m.completed = true; }
+                },
+                exportData() {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.catalog));
+                    const downloadAnchorNode = document.createElement('a');
+                    downloadAnchorNode.setAttribute("href", dataStr);
+                    downloadAnchorNode.setAttribute("download", "cine_ark_backup.json");
+                    downloadAnchorNode.click();
+                },
+                importData(event) {
+                    const file = event.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (e) => { this.catalog = JSON.parse(e.target.result); };
+                    reader.readAsText(file);
+                },
+                openModal() { this.showModal = true; }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>

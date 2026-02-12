@@ -1,17 +1,23 @@
 {
   "name": "CINE ARK | ULTIMATE AURA",
-  "short_name": "CineArk",
-  "description": "Gerenciador de animes e mangás com pacto de sangue.",
-  "start_url": "index.html",
+  "short_name": "CINE ARK",
+  "description": "Catálogo Arconte de Animes e Mangás",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#020202",
   "theme_color": "#3a0000",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "icone.png",
-      "sizes": "512x512",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "icone.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v27-personal-library';
+const CACHE_NAME = 'cine-ark-v28-google-auth';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
 const ASSETS = ['./index.html','./reader.js','./reader-controls.js','./personal-library.js','./external-progress.js',

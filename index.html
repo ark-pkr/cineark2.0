@@ -177,7 +177,7 @@
                         <button v-if="userSession" @click="openReaderProfile" class="ark-btn ark-btn-ghost" aria-label="Abrir meu perfil"><i class="fa-regular fa-user" aria-hidden="true"></i><span class="ark-user-name">{{ readerName }}</span></button>
                         <button v-if="isAdmin" @click="showAdmin = true" class="ark-btn ark-btn-secondary"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Administração</span></button>
                         <button v-if="userSession" @click="signOutReader" :disabled="authBusy || readerBusy" class="ark-btn ark-btn-ghost"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sair</button>
-                        <template v-else><button @click="openAuth('login')" :disabled="!authReady" class="ark-btn ark-btn-secondary"><i class="fa-regular fa-user" aria-hidden="true"></i>Entrar</button><button @click="openAuth('signup')" :disabled="!authReady" class="ark-btn ark-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Criar conta</button></template>
+                        <template v-else><button @click="openAuth('login')" :disabled="!authReady" class="ark-btn ark-btn-secondary"><i class="fa-regular fa-user" aria-hidden="true"></i>Entrar</button></template>
                     </nav>
                 </div>
             </header>
@@ -267,6 +267,7 @@
                 <div class="ark-auth-emblem"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
                 <h2 id="auth-heading" class="text-2xl font-bold mt-6">{{ authView === 'forgot' ? 'Recuperar acesso' : authView === 'reset' ? 'Defina sua nova senha' : authView === 'signup' ? 'Crie sua conta de leitor' : 'Entre no CINE ARK' }}</h2>
                 <p class="ark-note">{{ authView === 'signup' ? 'Crie seu espaço. Sua próxima história espera por você.' : 'Suas histórias estão esperando. Continue sua jornada.' }}</p>
+                <div v-if="['login','signup'].includes(authView)" class="ark-social-auth"><button type="button" @click="signInWithGoogle" :disabled="authBusy || !authReady" class="ark-google-button"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-1.99 3.02v2.51h3.23c1.89-1.74 2.98-4.3 2.98-7.36Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.23-2.51c-.9.6-2.05.96-3.39.96-2.6 0-4.8-1.76-5.59-4.13H3.07v2.59A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.41 13.91a6 6 0 0 1 0-3.82V7.5H3.07a10 10 0 0 0 0 9l3.34-2.59Z"/><path fill="#EA4335" d="M12 5.96c1.47 0 2.79.5 3.82 1.49l2.87-2.87A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.93 5.5l3.34 2.59A5.99 5.99 0 0 1 12 5.96Z"/></svg>{{ authBusy ? 'Aguarde...' : 'Continuar com Google' }}</button><p>Use sua conta Google para entrar ou criar seu cadastro.</p><div class="ark-auth-divider"><span>ou continue com e-mail</span></div></div>
                 <form class="ark-form" @submit.prevent="submitAuth">
                     <label v-if="authView === 'signup'">Nome <input v-model="authName" autocomplete="nickname" maxlength="80" required :disabled="authBusy"></label>
                     <label v-if="authView !== 'reset'">E-mail <input v-model="authEmail" type="email" autocomplete="email" required :disabled="authBusy"></label>
@@ -275,7 +276,7 @@
                     <p v-if="authError" class="ark-error" role="alert">{{ authError }}</p>
                     <p v-if="authMessage" class="ark-note" role="status">{{ authMessage }}</p>
                     <button type="submit" :disabled="authBusy">{{ authBusy ? 'Aguarde…' : authView === 'forgot' ? 'Enviar link de recuperação' : authView === 'reset' ? 'Salvar nova senha' : authView === 'signup' ? 'Criar conta' : 'Entrar' }}</button>
-                    <button v-if="authView === 'login'" type="button" class="ark-btn-ghost" @click="openAuth('forgot')" :disabled="authBusy">Esqueci minha senha</button><button type="button" class="ark-btn-ghost" :disabled="authBusy" @click="openAuth(['signup','forgot','reset'].includes(authView) ? 'login' : 'signup')">{{ ['signup','forgot','reset'].includes(authView) ? 'Voltar para entrar' : 'Ainda não tenho conta' }}</button>
+                    <button v-if="authView === 'login'" type="button" class="ark-btn-ghost" @click="openAuth('forgot')" :disabled="authBusy">Esqueci minha senha</button><button type="button" class="ark-btn-ghost" :disabled="authBusy" @click="openAuth(['signup','forgot','reset'].includes(authView) ? 'login' : 'signup')">{{ ['signup','forgot','reset'].includes(authView) ? 'Voltar para entrar' : 'Criar conta com e-mail' }}</button>
                 </form>
             </div>
             </div>

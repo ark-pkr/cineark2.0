@@ -441,3 +441,11 @@ body:has(.ark-overlay) { overflow:hidden; }
 .ark-reader-settings input[type=range] { width:90px; accent-color:#e53054; }
 .ark-shelf,.ark-catalog-grid>.movie-card { content-visibility:auto; contain-intrinsic-size:auto 350px; }
 @media(max-width:600px) { .ark-profile-panel { padding:24px 18px; } .ark-profile-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .ark-history-row { align-items:start; } .ark-history-row button { font-size:10px; padding:8px; } }
+
+.ark-social-auth { margin-top:24px; }
+.ark-overlay .ark-google-button { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; min-height:46px; background:#fff; border:1px solid #dadce0; border-radius:10px; color:#202124; font-weight:600; }
+.ark-overlay .ark-google-button:hover { background:#f1f3f4; }
+.ark-google-button svg { flex-shrink:0; }
+.ark-social-auth>p { font-size:11px; text-align:center; line-height:1.6; color:#bca7b3; margin:10px 0 20px; }
+.ark-auth-divider { display:flex; align-items:center; gap:12px; color:#a88e9d; font-size:10px; }
+.ark-auth-divider::before,.ark-auth-divider::after { content:''; flex:1; height:1px; background:#76425644; }

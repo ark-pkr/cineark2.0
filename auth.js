@@ -5,7 +5,7 @@ window.authMixin = {
     },
     computed: {
         isAdmin() { return this.userSession?.user?.app_metadata?.role === 'admin'; },
-        readerName() { return this.userSession?.user?.user_metadata?.display_name || this.userSession?.user?.email || 'Leitor'; }
+        readerName() { return this.userSession?.user?.user_metadata?.display_name || this.userSession?.user?.user_metadata?.full_name || this.userSession?.user?.email || 'Leitor'; }
     },
     methods: {
         authRedirectURL() {
@@ -38,6 +38,23 @@ window.authMixin = {
             this.authPassword = ''; this.authConfirm = '';
         },
         closeAuth() { if (!this.authBusy) { this.authView = null; this.authPassword = ''; this.authConfirm = ''; } },
+        async signInWithGoogle() {
+            if (this.authBusy || !this.authReady) return;
+            this.authBusy = true; this.authError = ''; this.authMessage = '';
+            try {
+                const config = window.CINE_ARK_CONFIG;
+                const response = await fetch(new URL('/auth/v1/settings', config.supabaseUrl), { headers: { apikey: config.supabaseAnonKey } });
+                if (!response.ok) throw new Error('Settings unavailable');
+                const settings = await response.json();
+                if (!settings.external?.google) throw new Error('Google provider disabled');
+                const { error } = await _supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: this.authRedirectURL() } });
+                if (error) throw error;
+            } catch (error) {
+                this.authError = /provider|disabled|unsupported/i.test(error.message || '')
+                    ? 'O acesso com Google ainda não está habilitado. Você pode usar e-mail e senha.'
+                    : 'Não foi possível abrir o acesso com Google. Tente novamente ou use e-mail e senha.';
+            } finally { this.authBusy = false; }
+        },
         applySession(session) {
             const previousId = this.userSession?.user?.id;
             if (previousId !== session?.user?.id && this.activeChapter) this.closeReader();

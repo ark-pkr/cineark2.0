@@ -66,3 +66,16 @@ test('late personal library response cannot populate a different signed-in accou
  for(const resolve of finish)resolve({data:[{work_id:'w',status:'lido'}]});await pending;
  assert.equal(Object.keys(app.personalLibrary).length,0);assert.equal(Object.keys(app.chapterHistory).length,0);
 });
+test('Google login uses OAuth and returns to the current site without sending a password',async()=>{
+ let request;const c={window:{CINE_ARK_CONFIG:{supabaseUrl:'https://example.supabase.co',supabaseAnonKey:'public'},location:{href:'https://cineark.com.br/#catalogo'}},URL,
+ fetch:async()=>({ok:true,json:async()=>({external:{google:true}})}),_supabase:{auth:{signInWithOAuth:async args=>{request=args;return{};}}}};
+ vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);
+ const app={...c.window.authMixin.data(),...c.window.authMixin.methods,authReady:true};await app.signInWithGoogle();
+ assert.equal(request.provider,'google');assert.equal(request.options.redirectTo,'https://cineark.com.br/');assert.equal('password' in request,false);assert.equal(app.authBusy,false);
+});
+test('disabled Google provider reports configuration failure without navigating away',async()=>{
+ const c={window:{CINE_ARK_CONFIG:{supabaseUrl:'https://example.supabase.co',supabaseAnonKey:'public'}},URL,
+ fetch:async()=>({ok:true,json:async()=>({external:{google:false}})}),_supabase:{auth:{signInWithOAuth(){throw Error('must not redirect');}}}};
+ vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);const app={...c.window.authMixin.data(),...c.window.authMixin.methods,authReady:true};
+ await app.signInWithGoogle();assert.match(app.authError,/habilitado/);assert.equal(app.authBusy,false);
+});

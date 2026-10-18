@@ -79,7 +79,7 @@ window.personalLibraryMixin = {
             } catch(_) { if(userId===this.userSession?.user?.id && epoch===this._personalEpoch) this.personalError='O histórico não sincronizou. Seu ponto de leitura continua salvo.'; }
             finally { pending.delete(key); }
         },
-        openReaderProfile() { if(!this.userSession) return this.openAuth('login'); this.profileName=this.userSession.user.user_metadata?.display_name||''; this.profileMessage=''; this.showProfile=true; },
+        openReaderProfile() { if(!this.userSession) return this.openAuth('login'); this.profileName=this.userSession.user.user_metadata?.display_name||this.userSession.user.user_metadata?.full_name||''; this.profileMessage=''; this.showProfile=true; },
         async saveProfileName() {
             if(this.personalBusy || !this.profileName.trim() || !this.userSession) return;
             const userId=this.userSession.user.id; this.personalBusy=true; this.profileMessage='';

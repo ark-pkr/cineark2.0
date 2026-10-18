@@ -402,11 +402,11 @@ body:has(.ark-overlay) { overflow:hidden; }
 /* Compact blood-red masthead and occult wordmark. */
 .ark-portal .ark-site-header { position:relative; background:linear-gradient(90deg,#18070d,#080507 65%,#1e0810); border-bottom:1px solid #b6294355; box-shadow:0 5px 24px #ac142319; }
 .ark-portal .ark-site-header::after { content:''; position:absolute; bottom:-1px; left:36px; width:175px; height:1px; background:linear-gradient(90deg,transparent,#ff3a55,transparent); box-shadow:0 0 12px #f32549aa; }
-.ark-portal .ark-topbar { min-height:50px; padding:5px 8px; gap:16px; }
-.ark-portal .ark-wordmark,.ark-site-footer .ark-wordmark { position:relative; font-family:'Metal Mania','Bangers',fantasy; font-size:30px; letter-spacing:2px; line-height:1.15; color:#e82c43; text-shadow:0 2px 0 #470713,0 0 15px #bd173f66,0 0 35px #9b062333; transform:skewX(-5deg); }
+.ark-portal .ark-topbar { min-height:40px; padding:2px 8px; gap:14px; }
+.ark-portal .ark-wordmark,.ark-site-footer .ark-wordmark { position:relative; font-family:'Metal Mania','Bangers',fantasy; font-size:26px; letter-spacing:2px; line-height:1.15; color:#e82c43; text-shadow:0 2px 0 #470713,0 0 15px #bd173f66,0 0 35px #9b062333; transform:skewX(-5deg); }
 .ark-portal .ark-wordmark>span,.ark-site-footer .ark-wordmark>span { color:#fae3e8; text-shadow:0 1px 0 #ab2a43,0 0 16px #ef305c66; }
-.ark-portal .ark-main-nav { top:50px; }
-.ark-portal .ark-account-actions .ark-btn { min-height:32px; padding:6px 11px; }
+.ark-portal .ark-main-nav { top:100%; }
+.ark-portal .ark-account-actions .ark-btn { min-height:30px; padding:4px 10px; }
 .ark-portal .ark-menu-toggle,.ark-portal .ark-header-search { height:32px; }
 .ark-rune-field span:nth-child(3n) { color:#ff5360; text-shadow:0 0 8px #ff203c,0 0 24px #db1238bb,0 0 45px #aa123b77; }
-@media(max-width:700px) { .ark-rune-field span { font-size:calc(var(--rune-size) * .75); } .ark-portal .ark-topbar { gap:8px; min-height:46px; padding:5px 0; } .ark-portal .ark-main-nav { top:46px; } .ark-portal .ark-wordmark { font-size:26px; letter-spacing:1px; } .ark-portal .ark-account-actions .ark-btn { min-height:30px; padding:5px 8px; } }
+@media(max-width:700px) { .ark-rune-field span { font-size:calc(var(--rune-size) * .75); } .ark-portal .ark-topbar { gap:8px; min-height:44px; padding:2px 0; } .ark-portal .ark-main-nav { top:100%; } .ark-portal .ark-wordmark { font-size:26px; letter-spacing:1px; } .ark-portal .ark-account-actions .ark-btn { min-height:30px; padding:5px 8px; } }

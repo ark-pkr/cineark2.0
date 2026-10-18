@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v23-dark-masthead'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v24-compact-header'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
   './reader.js',

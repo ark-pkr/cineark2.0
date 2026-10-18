@@ -1,3 +1,17 @@
+window.ArkSplash = (() => {
+    let returningFromAuth = false;
+    try {
+        const url = new URL(window.location.href), hash = new URLSearchParams(url.hash.slice(1));
+        returningFromAuth = ['access_token','refresh_token','type','error','error_description'].some(key=>hash.has(key)) || url.searchParams.has('code');
+    } catch (_) {}
+    return {
+        shouldShow() {
+            if (returningFromAuth) return false;
+            try { return sessionStorage.getItem('ark-splash-seen') !== '1'; } catch (_) { return true; }
+        },
+        dismiss() { try { sessionStorage.setItem('ark-splash-seen','1'); } catch (_) {} }
+    };
+})();
 window.authMixin = {
     data() {
         return { authView: null, authEmail: '', authPassword: '', authName: '', authConfirm: '',
@@ -34,10 +48,16 @@ window.authMixin = {
             finally { if (userId === this.userSession?.user?.id) this.readerBusy = false; }
         },
         openAuth(view = 'login') {
+            this.dismissSplash();
             this.authView = view; this.authError = ''; this.authMessage = '';
             this.authPassword = ''; this.authConfirm = '';
         },
         closeAuth() { if (!this.authBusy) { this.authView = null; this.authPassword = ''; this.authConfirm = ''; } },
+        dismissSplash() {
+            window.ArkSplash.dismiss();
+            this.isRitualLoading = false; this.isExiting = false;
+            if (this._ritualInterval != null) clearInterval(this._ritualInterval);
+        },
         async signInWithGoogle() {
             if (this.authBusy || !this.authReady) return;
             this.authBusy = true; this.authError = ''; this.authMessage = '';
@@ -59,6 +79,7 @@ window.authMixin = {
             const previousId = this.userSession?.user?.id;
             if (previousId !== session?.user?.id && this.activeChapter) this.closeReader();
             this.userSession = session;
+            if (session?.user) this.dismissSplash();
             this.authReady = true;
             if (previousId !== session?.user?.id) {
                 this.resetPersonalAccount?.();

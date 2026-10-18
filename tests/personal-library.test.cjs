@@ -79,3 +79,10 @@ test('disabled Google provider reports configuration failure without navigating 
  vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);const app={...c.window.authMixin.data(),...c.window.authMixin.methods,authReady:true};
  await app.signInWithGoogle();assert.match(app.authError,/habilitado/);assert.equal(app.authBusy,false);
 });
+test('splash appears once per tab and stays hidden after authentication returns',()=>{
+ const storage=new Map();const load=href=>{const c={window:{location:{href}},URL,URLSearchParams,sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)}};vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);return c.window.ArkSplash;};
+ const first=load('https://cineark.com.br/');assert.equal(first.shouldShow(),true);first.dismiss();assert.equal(load('https://cineark.com.br/').shouldShow(),false);
+ storage.clear();assert.equal(load('https://cineark.com.br/#access_token=example&type=signup').shouldShow(),false);
+ assert.equal(load('https://cineark.com.br/?code=example').shouldShow(),false);
+ assert.equal(load('https://cineark.com.br/#type=recovery').shouldShow(),false);
+});

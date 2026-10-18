@@ -522,7 +522,7 @@
                     userSession: null,
                     isEditing: false,
                     editingId: null,
-                    isRitualLoading: true, readyToEnter: false, isExiting: false,
+                    isRitualLoading: window.ArkSplash?.shouldShow() ?? true, readyToEnter: false, isExiting: false,
                     currentSinisterMsg: "Iniciando rituais...",
                     sinisterPhrases: ["Drenando o vazio...","As runas chamam...","Invocando almas...","Selando o pacto...","Aura em ressonância...","Não há volta..."],
                     showModal: false, showLevelUp: false, isShaking: false,
@@ -646,14 +646,16 @@
 
                 endRitual() {
                     if(this.readyToEnter) {
+                        window.ArkSplash.dismiss();
                         this.isExiting = true;
-                        setTimeout(() => this.isRitualLoading = false, 1200);
+                        setTimeout(() => { this.isRitualLoading = false; clearInterval(this._ritualInterval); }, 1200);
                     }
                 },
 
                 startRitual() {
+                    if (!this.isRitualLoading || this.userSession) return;
                     let i = 0;
-                    const interval = setInterval(() => {
+                    const interval = this._ritualInterval = setInterval(() => {
                         this.currentSinisterMsg = this.sinisterPhrases[i % this.sinisterPhrases.length];
                         i++;
                         if(i > 4) this.readyToEnter = true;

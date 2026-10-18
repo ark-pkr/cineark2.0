@@ -1,0 +1,7 @@
+project_id = "cineark"
+
+# Read-only MangaDex metadata and images. This function does not access the app database.
+# Keep all existing Supabase Auth and table RLS protections unchanged.
+[functions.mangadex]
+verify_jwt = false
+entrypoint = "./functions/mangadex/index.ts"

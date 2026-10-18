@@ -2,13 +2,21 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>CINE ARK | ULTIMATE AURA</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&family=Bangers&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="reader.css">
+    <script src="cloud-reader.js"></script>
+    <script src="reader.js"></script>
+    <script src="mangadex.js"></script>
+    <script src="auth.js"></script>
+    <script src="translation.js"></script>
+    <script src="metadata.js"></script>
+    <script src="config.js"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -26,7 +34,7 @@
             cursor: pointer; overflow: hidden;
         }
         .splash-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        
+
         .ritual-container {
             position: relative; width: 450px; height: 450px; margin-bottom: 2rem;
             display: flex; align-items: center; justify-content: center;
@@ -78,7 +86,7 @@
         .blood-curtain.active { top: 100%; }
         .blood-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; overflow: hidden; }
         .drop { position: absolute; top: -250px; background: linear-gradient(to bottom, transparent, var(--blood-dark), var(--blood-fresh)); border-radius: 0 0 100px 100px; animation: viscous-drip linear infinite; }
-        
+
         @keyframes viscous-drip { 0% { transform: translateY(0); opacity: 0; } 100% { transform: translateY(125vh); opacity: 0; } }
         @keyframes rotate-runes { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes pulse-brand { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } }
@@ -96,7 +104,7 @@
         .lvl-up-overlay { position: fixed; inset: 0; background: radial-gradient(circle, rgba(255,0,0,0.3) 0%, rgba(0,0,0,0.95) 100%); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .lvl-text { font-family: 'Bangers'; font-size: 6rem; color: #ff0000; text-shadow: 0 0 40px #f00; animation: bounceGrow 1s infinite; }
         @keyframes bounceGrow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-        
+
         .blood-title { font-family: 'Bangers', cursive; font-size: 4.5rem; background: linear-gradient(to bottom, #500 20%, #f00 50%, #111 90%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0px 6px 4px rgba(0,0,0,1)); letter-spacing: 12px; }
         .xp-bar { height: 8px; background: #080808; border-radius: 10px; width: 260px; border: 1px solid #200; overflow: hidden; }
         .xp-fill { height: 100%; background: linear-gradient(90deg, #400, #f00, #ff5555); box-shadow: 0 0 15px #f00; transition: width 1s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -144,20 +152,23 @@
         </div>
 
         <div class="max-w-7xl mx-auto px-6 py-10 relative z-10">
-            <header class="mb-12 flex flex-col items-center">
-                <div class="flex justify-between w-full mb-8 items-center">
-                    <button v-if="userSession" @click="exportData" class="text-[10px] text-zinc-700 hover:text-red-500 uppercase font-black">Exportar</button>
-                    <div v-else class="w-10"></div>
-                    <div class="flex flex-col items-center">
+            <header class="ark-site-header">
+                <div class="ark-topbar">
+                    <div class="ark-rank">
+                        <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i><div>
                         <span class="text-[14px] text-red-600 font-black uppercase">{{ rankTitle }}</span>
                         <div class="xp-bar mt-2"><div class="xp-fill" :style="{ width: xpPercent + '%' }"></div></div>
+                        </div>
                     </div>
-                    <label v-if="userSession" class="text-[10px] text-zinc-700 hover:text-red-500 uppercase font-black cursor-pointer">
-                        Importar <input type="file" @change="importData" class="hidden">
-                    </label>
-                    <div v-else class="w-10"></div>
+                    <nav class="ark-account-actions" aria-label="Sua conta">
+                        <span v-if="userSession" class="ark-user-name" :title="readerName"><i class="fa-regular fa-user" aria-hidden="true"></i>{{ readerName }}</span>
+                        <button v-if="isAdmin" @click="showAdmin = true" class="ark-btn ark-btn-secondary"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Administração</span></button>
+                        <button v-if="userSession" @click="signOutReader" :disabled="authBusy || readerBusy" class="ark-btn ark-btn-ghost"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sair</button>
+                        <template v-else><button @click="openAuth('login')" :disabled="!authReady" class="ark-btn ark-btn-secondary"><i class="fa-regular fa-user" aria-hidden="true"></i>Entrar</button><button @click="openAuth('signup')" :disabled="!authReady" class="ark-btn ark-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Criar conta</button></template>
+                    </nav>
                 </div>
-                <h1 @click="secretClickCount++" class="blood-title italic cursor-pointer select-none">CINE ARK</h1>
+                <h1 class="blood-title italic select-none">CINE ARK</h1>
+                <p class="ark-brand-caption">Seu próximo capítulo começa aqui</p>
             </header>
 
             <section class="mb-12">
@@ -173,70 +184,234 @@
                 </div>
             </section>
 
-            <div class="flex flex-col md:flex-row gap-6 mb-12 items-center justify-between">
-                <div class="flex gap-2 overflow-x-auto pb-2">
-                    <button v-for="f in ['Todos', 'lendo', 'lido', 'pretendo']" @click="currentFilter = f" :class="['px-4 py-2 rounded-lg text-[10px] font-black uppercase border', currentFilter === f ? 'bg-red-700 text-white border-red-500' : 'bg-black text-zinc-600 border-zinc-900']">
+            <div class="ark-library-tools">
+                <div class="ark-filters" role="group" aria-label="Filtrar biblioteca">
+                    <button v-for="f in ['Todos', 'lendo', 'lido', 'pretendo']" @click="currentFilter = f" :aria-pressed="currentFilter === f" :class="['ark-filter', { 'is-active': currentFilter === f }]">
                         {{ f === 'lendo' ? 'Em Ritual' : f === 'lido' ? 'Ceifados' : f === 'pretendo' ? 'Na Mira' : 'Todos' }}
                     </button>
                 </div>
-                <input v-model="localSearch" placeholder="BUSCAR NO SUBMUNDO..." class="w-full max-w-xs bg-black border border-red-900/30 p-3 rounded-xl text-xs text-red-500 outline-none">
+                <label class="ark-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="localSearch" aria-label="Buscar na biblioteca" placeholder="Buscar no submundo..."></label>
             </div>
 
+            <div v-if="catalogError" class="ark-error" role="status">
+                <p>{{ catalogError }}</p>
+                <button @click="fetchFromSupabase" class="ark-btn ark-btn-secondary" style="margin-top:12px">Tentar novamente</button>
+            </div>
             <main class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                <div v-for="(item, index) in filteredCatalog" :key="index" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
+                <div v-for="(item, index) in filteredCatalog" :key="item.id" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
                     <div class="relative aspect-[2/3] bg-zinc-900">
                         <img :src="item.poster" loading="lazy" class="w-full h-full object-cover grayscale-[0.6] group-hover:grayscale-0 transition duration-700">
                         <div class="absolute bottom-0 left-0 w-full h-1 bg-black/50">
                             <div class="h-full bg-red-600 shadow-[0_0_8px_#f00]" :style="{ width: Math.min(100, (item.currentcount / (item.totalcount || 1) * 100)) + '%' }"></div>
                         </div>
-                        <button v-if="userSession" @click="removeEntry(index)" class="absolute top-2 right-2 w-6 h-6 bg-black text-red-700 rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition">✕</button>
+                        <button v-if="isAdmin" @click="removeEntry(index)" class="ark-card-delete" :aria-label="'Excluir ' + item.title"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
                     </div>
                     <div class="p-3 bg-black">
-                        <h3 @click="userSession ? editEntry(item) : null" :class="['text-[9px] font-black uppercase truncate mb-3 transition-colors', userSession ? 'cursor-pointer hover:text-red-600 text-zinc-400' : 'text-zinc-600']">
+                        <h3 @click="isAdmin ? editEntry(item) : null" :class="['text-[9px] font-black uppercase truncate mb-3 transition-colors', isAdmin ? 'cursor-pointer hover:text-red-600 text-zinc-400' : 'text-zinc-600']">
                             {{ item.title }}
-                            <i v-if="userSession" class="fa-solid fa-pen-to-square ml-1 text-[7px] opacity-30"></i>
+                            <i v-if="isAdmin" class="fa-solid fa-pen-to-square ml-1 text-[7px] opacity-30"></i>
                         </h3>
-                        <div v-if="userSession" class="flex items-center justify-between">
-                            <button @click="updateStep(index, -1)" class="w-7 h-7 bg-red-950/10 rounded border border-red-900/20">-</button>
+                        <div v-if="isAdmin" class="flex items-center justify-between">
+                            <button @click="updateStep(index, -1)" class="ark-step" aria-label="Diminuir progresso">−</button>
                             <span class="text-[10px] font-black text-red-600">{{ item.currentcount }}/{{ item.totalcount || '?' }}</span>
-                            <button @click="updateStep(index, 1)" class="w-7 h-7 bg-red-950/10 rounded border border-red-900/20">+</button>
+                            <button @click="updateStep(index, 1)" class="ark-step" aria-label="Aumentar progresso">+</button>
                         </div>
                         <div v-else class="text-center py-1">
                              <span class="text-[10px] font-black text-red-600/60">{{ item.currentcount }}/{{ item.totalcount || '?' }}</span>
                         </div>
+                        <button v-if="item.type !== 'Anime'" @click="openWork(item)" class="ark-btn ark-btn-primary ark-read-button"><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingProgress[item.id] ? 'Continuar lendo' : 'Ler capítulos' }}</button>
                     </div>
                 </div>
             </main>
         </div>
 
-        <button v-if="userSession" @click="openModal" class="fab text-white flex items-center justify-center shadow-lg"><i class="fa-solid fa-plus text-2xl"></i></button>
 
-        <div v-if="showModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/98 backdrop-blur-xl">
-            <div class="bg-[#080808] w-full max-w-sm rounded-[2rem] p-8 border border-red-900/40">
-               <h2 class="text-2xl font-black italic text-red-700 mb-6 text-center uppercase">{{ isEditing ? 'Alterar Destino' : 'Selo de Invocação' }}</h2>
-                <div class="space-y-4">
-                    <input v-model="newItem.title" @input="debounceBusca" placeholder="NOME DO SELO" class="w-full bg-black p-4 rounded-xl border border-red-900/20 text-xs text-white outline-none">
-                    <div v-if="searchResults.length" class="max-h-40 overflow-y-auto bg-zinc-950 rounded-xl">
-                        <div v-for="res in searchResults" @click="selectResult(res)" class="p-3 border-b border-zinc-900 flex items-center cursor-pointer hover:bg-red-950/20">
-                            <img :src="res.images.webp.small_image_url" class="w-8 h-10 object-cover mr-2">
-                            <span class="text-[9px] font-bold text-zinc-300 uppercase">{{ res.title }}</span>
+        <section v-if="authView" class="ark-overlay ark-auth-overlay" style="z-index:12000" role="dialog" aria-modal="true" aria-labelledby="auth-heading">
+            <div class="ark-panel ark-auth-panel">
+                <button @click="closeAuth" :disabled="authBusy" class="ark-btn ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
+                <div class="ark-auth-emblem"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
+                <h2 id="auth-heading" class="text-2xl font-bold mt-6">{{ authView === 'signup' ? 'Crie sua conta de leitor' : 'Entre no CINE ARK' }}</h2>
+                <p class="ark-note">Sua biblioteca de leitura começa aqui.</p>
+                <form class="ark-form" @submit.prevent="submitAuth">
+                    <label v-if="authView === 'signup'">Nome <input v-model="authName" autocomplete="nickname" maxlength="80" required :disabled="authBusy"></label>
+                    <label>E-mail <input v-model="authEmail" type="email" autocomplete="email" required :disabled="authBusy"></label>
+                    <label>Senha <input v-model="authPassword" type="password" :autocomplete="authView === 'signup' ? 'new-password' : 'current-password'" :minlength="authView === 'signup' ? 8 : 1" required :disabled="authBusy"></label>
+                    <label v-if="authView === 'signup'">Confirmar senha <input v-model="authConfirm" type="password" autocomplete="new-password" minlength="8" required :disabled="authBusy"></label>
+                    <p v-if="authError" class="ark-error" role="alert">{{ authError }}</p>
+                    <p v-if="authMessage" class="ark-note" role="status">{{ authMessage }}</p>
+                    <button type="submit" :disabled="authBusy">{{ authBusy ? 'Aguarde…' : authView === 'signup' ? 'Criar conta' : 'Entrar' }}</button>
+                    <button type="button" class="ark-btn-ghost" :disabled="authBusy" @click="openAuth(authView === 'signup' ? 'login' : 'signup')">{{ authView === 'signup' ? 'Já tenho conta' : 'Ainda não tenho conta' }}</button>
+                </form>
+            </div>
+        </section>
+        <section v-if="showAdmin && isAdmin" class="ark-overlay" role="dialog" aria-modal="true" aria-label="Painel administrativo">
+            <div class="ark-panel">
+                <button @click="showAdmin = false" class="ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
+                <h2 class="text-2xl font-bold mt-6">Painel administrativo</h2>
+                <p class="ark-note">{{ catalog.length }} obras cadastradas. Gerencie a biblioteca e os capítulos.</p>
+                <div class="ark-toolbar"><button @click="openModal" class="ark-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Cadastrar obra</button><button @click="exportData"><i class="fa-solid fa-arrow-down-to-bracket" aria-hidden="true"></i>Exportar catálogo</button></div>
+                <p v-if="!catalog.length" class="ark-note">Cadastre sua primeira obra para adicionar capítulos.</p>
+                <article v-for="(item, index) in catalog" :key="item.id" class="ark-chapter" style="flex-wrap:wrap">
+                    <strong>{{ item.title }}</strong>
+                    <div class="ark-toolbar">
+                        <button @click="editEntry(item)"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>Editar</button>
+                        <button v-if="item.type !== 'Anime'" @click="showAdmin = false; openWork(item)"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Capítulos</button>
+                        <button @click="removeCatalogItem(item)" class="ark-btn-danger"><i class="fa-regular fa-trash-can" aria-hidden="true"></i>Excluir</button>
+                    </div>
+                </article>
+            </div>
+        </section>
+        <section v-if="readingWork && !activeChapter" class="ark-overlay" role="dialog" aria-modal="true" aria-label="Capítulos da obra">
+            <div class="ark-panel">
+                <button @click="readingWork = null" :disabled="readerBusy" class="ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
+                <h2 class="text-2xl font-bold mt-6">{{ readingWork.title }}</h2>
+                <div v-if="readingWork.synopsis" class="ark-synopsis"><h3>Sinopse</h3><p>{{ readingWork.synopsis }}</p></div>
+                <p v-if="readingWork.mal_id" class="ark-note">Referência da obra: <a :href="'https://myanimelist.net/manga/' + Number(readingWork.mal_id)" target="_blank" rel="noopener noreferrer" class="ark-source-link">MyAnimeList ↗</a></p>
+                <nav class="ark-source-tabs" aria-label="Fonte dos capítulos">
+                    <button @click="setChapterSource('library')" :disabled="readerBusy" :aria-pressed="chapterSource === 'library'" :class="{ 'ark-btn-primary': chapterSource === 'library' }">Biblioteca</button>
+                    <button @click="setChapterSource('mangadex')" :disabled="readerBusy" :aria-pressed="chapterSource === 'mangadex'" :class="{ 'ark-btn-primary': chapterSource === 'mangadex' }">MangaDex</button>
+                </nav>
+                <section v-show="chapterSource === 'mangadex'">
+                    <p class="ark-note">Escolha a edição correta e o idioma. As páginas são carregadas da fonte durante a leitura; a disponibilidade varia por obra. O progresso MangaDex fica separado, neste dispositivo e nesta conta.</p>
+                    <form @submit.prevent="searchMangaDex" class="ark-dex-search">
+                        <label class="ark-field-label">Buscar obra no MangaDex<input v-model="dexQuery" class="ark-field" minlength="3" maxlength="150" required placeholder="Título da obra"></label>
+                        <button :disabled="dexLoading || readerBusy" type="submit"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Buscar</button>
+                    </form>
+                    <div class="ark-dex-options">
+                        <label>Idioma<select v-model="dexLanguage" @change="loadDexChapters()" :disabled="readerBusy"><option value="pt-br">Português (Brasil)</option><option value="pt">Português (Portugal)</option><option value="en">Inglês</option></select></label>
+                        <label>Imagens<select v-model="dexQuality" :disabled="readerBusy"><option value="economy">Econômicas</option><option value="original">Qualidade original</option></select></label>
+                    </div>
+                    <p v-if="dexLoading" class="ark-note" role="status">Consultando MangaDex…</p>
+                    <p v-if="dexError" class="ark-error" role="alert">{{ dexError }}</p>
+                    <div v-if="!dexSelected">
+                        <p v-if="dexSearched && !dexResults.length && !dexLoading" class="ark-note">Nenhuma obra encontrada. Tente o título original ou outro nome.</p>
+                        <article v-for="manga in dexResults" :key="manga.id" class="ark-dex-result">
+                            <img v-if="manga.hasCover" :src="mangaDexAPI().cover(manga.id)" loading="lazy" alt="">
+                            <div><strong>{{ manga.title }}</strong><small>{{ manga.year || '' }} · {{ manga.originalLanguage }} · {{ manga.status }}</small><p>{{ manga.alternateTitles.join(' · ') }}</p></div>
+                            <button @click="selectDexManga(manga)" :disabled="dexLoading || readerBusy" class="ark-btn-primary">Ver capítulos</button>
+                        </article>
+                    </div>
+                    <template v-if="dexSelected">
+                        <div class="ark-dex-selected"><strong>{{ dexSelected.title }}</strong><a :href="'https://mangadex.org/title/' + dexSelected.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">Abrir no MangaDex ↗</a></div>
+                        <button @click="loadDexChapters()" :disabled="dexLoading || readerBusy" class="ark-btn-ghost">Atualizar capítulos</button>
+                        <button v-if="dexChapters.length" @click="continueMangaDex" :disabled="dexLoading || readerBusy" class="ark-btn-primary">{{ readingProgress['mangadex:' + readingWork.id] ? 'Continuar no MangaDex' : 'Começar leitura' }}</button>
+                        <p v-if="!dexLoading && !dexChapters.length && !dexError" class="ark-note">Não há capítulos disponíveis para leitura neste idioma. Escolha outro idioma ou consulte a fonte original.</p>
+                        <div v-for="chapter in dexChapters" :key="chapter.id" class="ark-chapter">
+                            <button @click="openChapter(chapter)" :disabled="readerBusy || dexLoading" class="ark-chapter-open">Cap. {{ chapter.number }} {{ chapter.title ? '— ' + chapter.title : '' }} · {{ chapter.pageCount }} páginas <small v-if="chapter.group">· {{ chapter.group }}</small></button>
                         </div>
+                        <button v-if="dexHasMore" @click="loadDexChapters(true)" :disabled="dexLoading || readerBusy">Carregar mais capítulos</button>
+                    </template>
+                </section>
+                <section v-show="chapterSource === 'library'">
+                <p class="ark-note">Os capítulos publicados ficam disponíveis para os leitores. Entre na mesma conta em outro dispositivo para continuar sua leitura.</p>
+                <button @click="loadChapters(readingWork.id)" :disabled="readerBusy" class="ark-btn-ghost"><i class="fa-solid fa-rotate" aria-hidden="true"></i>Atualizar capítulos</button>
+                <p v-if="readerError" role="alert" class="ark-error">{{ readerError }}</p>
+                <p v-if="readerBusy" role="status" class="ark-note">Carregando...</p>
+                <button v-if="readingChapters.length" @click="continueReading" :disabled="readerBusy || progressLoading" class="ark-btn-primary"><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingProgress[readingWork.id] ? 'Continuar lendo' : 'Começar leitura' }}</button>
+                <p v-else-if="!readerBusy" class="ark-note">Nenhum capítulo publicado ainda.</p>
+                <div v-for="chapter in chapters" :key="chapter.id" class="ark-chapter">
+                    <button @click="openChapter(chapter)" :disabled="readerBusy || !chapter.published" class="ark-chapter-open"><i class="fa-regular fa-file-lines" aria-hidden="true"></i>Cap. {{ chapter.number }} {{ chapter.title ? ' - ' + chapter.title : '' }} - {{ chapter.pageCount }} páginas {{ chapter.published ? '' : '(rascunho incompleto)' }}</button>
+                    <button v-if="isAdmin" @click="deleteChapter(chapter)" :disabled="readerBusy" class="ark-btn-danger" :aria-label="'Excluir capítulo ' + chapter.number"><i class="fa-regular fa-trash-can" aria-hidden="true"></i>Excluir</button>
+                </div>
+                <section v-if="isAdmin && localChapters.length" class="ark-local-chapters">
+                    <h3 class="font-bold">Capítulos antigos deste dispositivo</h3>
+                    <p class="ark-note">As cópias locais foram preservadas. Publique cada capítulo para disponibilizá-lo online. Um número já utilizado precisa ser resolvido antes da publicação.</p>
+                    <div v-for="local in localChapters" :key="local.id" class="ark-chapter">
+                        <button @click="openChapter(local)" :disabled="readerBusy" class="ark-chapter-open">Cap. {{ local.number }} · {{ local.pageCount }} páginas (local)</button>
+                        <button @click="publishLocalChapter(local)" :disabled="readerBusy || chapters.some(c => c.number === local.number)" class="ark-btn-primary">Publicar online</button>
+                        <button @click="deleteChapter(local)" :disabled="readerBusy" class="ark-btn-danger">Excluir cópia local</button>
+                    </div>
+                </section>
+                <p v-if="uploadStatus" role="status" class="ark-note">{{ uploadStatus }}</p>
+                <form v-if="isAdmin" class="ark-form" @submit.prevent="addChapter">
+                    <h3 class="font-bold">Publicar capítulo online</h3>
+                    <label>Número <input v-model="chapterNumber" type="number" min="0.1" max="999999" step="any" required :disabled="readerBusy"></label>
+                    <label>Título (opcional) <input v-model="chapterTitle" maxlength="160" :disabled="readerBusy"></label>
+                    <label>Páginas <input ref="chapterUpload" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple @change="chooseChapterFiles" required :disabled="readerBusy"></label>
+                    <p class="ark-note">Use imagens próprias ou autorizadas, com até 15 MiB por página. A ordem segue o nome dos arquivos: 1, 2, 3… O capítulo será publicado após o envio de todas as páginas.</p>
+                    <ol v-if="chapterFiles.length" class="max-h-40 overflow-auto"><li v-for="(file, i) in chapterFiles" :key="i">{{ i + 1 }}. {{ file.name }}</li></ol>
+                    <button :disabled="readerBusy" type="submit">{{ readerBusy ? 'Aguarde…' : 'Enviar e publicar capítulo' }}</button>
+                </form>
+                </section>
+            </div>
+        </section>
+        <section v-if="activeChapter" ref="readerShell" class="ark-overlay ark-reader" role="dialog" aria-modal="true" aria-label="Leitor de capítulos">
+            <header class="ark-toolbar ark-reader-header">
+                <button @click="closeReader" class="ark-btn-ghost"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Capítulos</button>
+                <strong>{{ readingWork.title }} - Cap. {{ activeChapter.number }}</strong>
+                <a v-if="activeChapter.source === 'mangadex'" :href="'https://mangadex.org/chapter/' + activeChapter.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">MangaDex ↗</a>
+                <label>Modo <select v-model="readingMode" @change="changeReadingMode"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
+                <label v-if="readingMode === 'paged'">Direção <select v-model="readingDirection"><option value="ltr">Esquerda para direita</option><option value="rtl">Direita para esquerda</option></select></label>
+                <button @click="readerFullscreen"><i class="fa-solid fa-expand" aria-hidden="true"></i>Tela cheia</button>
+                <span class="ark-sync-state">{{ activeChapter.source === 'mangadex' ? 'MangaDex: progresso salvo neste dispositivo' : activeChapter.source === 'local' ? 'Leitura de cópia local' : progressSync === 'saved' ? 'Progresso salvo na conta' : progressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente' }}</span>
+            </header>
+            <div v-if="readerError" role="alert" class="ark-error">{{ readerError }} <button v-if="['remote', 'mangadex'].includes(activeChapter.source)" @click="readerError = ''; refreshSignedPages()">Recarregar páginas</button></div>
+            <div ref="readerScroll" :class="['ark-pages', { paged: readingMode === 'paged' }]" :key="activeChapter.id + readingMode">
+                <template v-if="readingMode === 'vertical'">
+                    <div v-for="(url, i) in pageURLs" :key="url" :data-page="i" :style="{ minHeight: '100px', aspectRatio: activeChapter.dimensions?.[i] ? activeChapter.dimensions[i].width + ' / ' + activeChapter.dimensions[i].height : undefined, maxWidth: '900px', margin: '0 auto' }">
+                        <img :src="url" loading="lazy" :data-chapter="activeChapter.id" @load="readerImageLoaded($event, i)" :alt="'Página ' + (i + 1)" @error="readerError = 'Não foi possível exibir uma página. Verifique o arquivo enviado.'">
+                    </div>
+                </template>
+                <img v-else :src="pageURLs[readerPage]" :data-chapter="activeChapter.id" @load="readerImageLoaded($event, readerPage)" :alt="'Página ' + (readerPage + 1)" @error="readerError = 'Não foi possível exibir esta página.'">
+            </div>
+            <footer class="ark-toolbar ark-reader-footer">
+                <button :disabled="readerBusy || dexLoading || chapterIndex <= 0" @click="navigateReaderChapter(-1)">Cap. anterior</button>
+                <template v-if="readingMode === 'paged'">
+                    <button :disabled="readingDirection === 'rtl' ? readerPage >= pageURLs.length - 1 : readerPage === 0" @click="turnPage(readingDirection === 'rtl' ? 1 : -1)">{{ readingDirection === 'rtl' ? 'Próxima página' : 'Página anterior' }}</button>
+                    <button :disabled="readingDirection === 'rtl' ? readerPage === 0 : readerPage >= pageURLs.length - 1" @click="turnPage(readingDirection === 'rtl' ? -1 : 1)">{{ readingDirection === 'rtl' ? 'Página anterior' : 'Próxima página' }}</button>
+                </template>
+                <span aria-live="polite">Página {{ readerPage + 1 }} / {{ pageURLs.length }}</span>
+                <button :disabled="readerBusy || dexLoading || chapterIndex < 0 || (chapterIndex >= readingChapters.length - 1 && !(activeChapter.source === 'mangadex' && dexHasMore))" @click="navigateReaderChapter(1)" class="ark-btn-primary">Próximo cap.<i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+            </footer>
+        </section>
+
+        <button v-if="isAdmin" @click="openModal" class="fab ark-add-work" aria-label="Cadastrar nova obra"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Nova obra</span></button>
+
+        <div v-if="showModal && isAdmin" class="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/98 backdrop-blur-xl">
+            <div class="ark-catalog-modal bg-[#080808] w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-[2rem] p-6 border border-red-900/40">
+               <h2 class="text-2xl font-black italic text-red-600 mb-6 text-center uppercase">{{ isEditing ? 'Editar obra' : 'Cadastrar obra' }}</h2>
+                <fieldset :disabled="catalogSaving" class="space-y-4">
+                    <label class="ark-field-label">Título<input v-model="newItem.title" @input="debounceBusca" placeholder="Digite o nome do mangá…" autocomplete="off" class="ark-field"></label>
+                    <button type="button" @click="searchCatalogMetadata" :disabled="metadataLoading" class="ark-btn ark-btn-secondary w-full"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>{{ metadataLoading ? 'Buscando…' : newItem.mal_id ? 'Atualizar dados da API' : 'Buscar capa e sinopse' }}</button>
+                    <p v-if="metadataError" class="ark-error" role="alert">{{ metadataError }}</p>
+                    <p v-if="metadataSearched && !searchResults.length" class="ark-note" role="status">Nenhuma obra encontrada. Tente outro título ou preencha os dados abaixo.</p>
+                    <div v-if="searchResults.length" class="ark-metadata-results" role="group" aria-label="Resultados da busca">
+                        <button v-for="res in searchResults" :key="res.result_key || res.mal_id || res.title" type="button" @click="selectResult(res)" class="ark-metadata-result">
+                            <img v-if="metadataCover(res)" :src="metadataCover(res)" alt="" loading="lazy">
+                            <span><strong>{{ res.title }}</strong><small>{{ res.type || 'Mangá' }} · {{ res.chapters || '?' }} capítulos · {{ res.provider }}</small></span>
+                            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <p v-if="metadataSelected" class="ark-note" role="status">Capa e dados preenchidos automaticamente. A sinopse é traduzida para português ao selecionar uma obra.</p>
+                    <label class="ark-field-label">URL da capa<input v-model="newItem.poster" type="url" placeholder="https://…" class="ark-field"></label>
+                    <img v-if="newItem.poster" :src="newItem.poster" class="ark-cover-preview" alt="Prévia da capa">
+                    <label class="ark-field-label">Sinopse<textarea v-model="newItem.synopsis" @input="cancelSynopsisTranslation" rows="5" maxlength="50000" placeholder="A sinopse em português será preenchida ao selecionar uma obra. Você também pode escrevê-la aqui." class="ark-field"></textarea></label>
+                    <p v-if="translationStatus" class="ark-note" role="status">{{ translationStatus }}</p>
+                    <p v-if="translationError" class="ark-error" role="alert">{{ translationError }}</p>
+                    <button v-if="newItem.synopsis" type="button" @click="translateSynopsis" :disabled="synopsisTranslating" class="ark-btn ark-btn-secondary w-full">{{ synopsisTranslating ? 'Traduzindo…' : 'Traduzir sinopse para português' }}</button>
+                    <div v-if="catalogSaveError" class="ark-error" role="alert">
+                        <p>{{ catalogSaveError }}</p>
+                        <template v-if="catalogSchemaMissing">
+                            <p class="ark-note">Abra o SQL Editor, cole os comandos abaixo e clique em Run. Depois volte e salve novamente.</p>
+                            <pre class="ark-sql-help">{{ catalogMetadataSQL }}</pre>
+                            <a :href="catalogSQLEditor" target="_blank" rel="noopener noreferrer" class="ark-btn ark-btn-secondary">Abrir SQL Editor ↗</a>
+                        </template>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <select v-model="newItem.type" class="bg-black p-3 rounded-xl border border-red-900/20 text-[10px] text-red-500 font-bold">
-                            <option>Anime</option><option>Mangá</option>
+                            <option>Mangá</option><option>Manhwa</option><option>Manhua</option>
                         </select>
                         <select v-model="newItem.status" class="bg-black p-3 rounded-xl border border-red-900/20 text-[10px] text-red-500 font-bold">
-                            <option value="lendo">Assistindo</option>
+                            <option value="lendo">Lendo</option>
                             <option value="lido">Concluído</option>
                             <option value="pretendo">Na Mira</option>
                         </select>
                     </div>
-                    <button @click="saveEntry" class="w-full py-4 bg-red-900 hover:bg-red-700 rounded-xl font-black text-xs uppercase shadow-[0_0_20px_rgba(150,0,0,0.3)]">
-                        {{ isEditing ? 'Confirmar Alteração' : 'Selo Concluído' }}
+                    <button @click="saveEntry" :disabled="catalogSaving || synopsisTranslating" class="ark-btn ark-btn-primary w-full">
+                        {{ synopsisTranslating ? 'Traduzindo sinopse…' : catalogSaving ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Adicionar à biblioteca' }}
                     </button>
-                    <button @click="closeModal" class="w-full text-zinc-800 text-[12px] font-black uppercase">Cancelar Ritual</button>
-                </div>
+                    <button @click="closeModal" class="ark-btn ark-btn-ghost w-full">Cancelar</button>
+                </fieldset>
             </div>
         </div>
     </div>
@@ -249,7 +424,7 @@
                 drop.className = 'drop';
                 drop.style.left = Math.random() * 100 + '%';
                 drop.style.animationDuration = (Math.random() * 8 + 4) + 's';
-                drop.style.width = '1px'; 
+                drop.style.width = '1px';
                 drop.style.height = (Math.random() * 200 + 100) + 'px';
                 container.appendChild(drop);
             }
@@ -257,16 +432,16 @@
         createBloodRain();
 
         const _supabase = supabase.createClient(
-            'https://mdhtjszfehivxnyzgotl.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaHRqc3pmZWhpdnhueXpnb3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTcyMzMsImV4cCI6MjA4NjQ3MzIzM30.Nkebv7WVRjYznIZddAKikX3cdKkFoNFjoIonlptARMo'
+            window.CINE_ARK_CONFIG.supabaseUrl,
+            window.CINE_ARK_CONFIG.supabaseAnonKey
         );
 
         const { createApp } = Vue
 
         createApp({
+            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin],
             data() {
                 return {
-                    secretClickCount: 0,
                     userSession: null,
                     isEditing: false,
                     editingId: null,
@@ -274,9 +449,9 @@
                     currentSinisterMsg: "Iniciando rituais...",
                     sinisterPhrases: ["Drenando o vazio...","As runas chamam...","Invocando almas...","Selando o pacto...","Aura em ressonância...","Não há volta..."],
                     showModal: false, showLevelUp: false, isShaking: false,
-                    currentFilter: 'Todos', localSearch: '', searchResults: [],
-                    newItem: { title: '', type: 'Anime', poster: '', currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
-                    catalog: [],
+                    currentFilter: 'Todos', localSearch: '', catalogSaving: false,
+                    newItem: { title: '', type: 'Mangá', poster: '', synopsis: '', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
+                    catalog: [], catalogError: '',
                     xp: 0,
                     dailyMissions: [],
                     runeStyles: Array.from({length: 22}, () => ({
@@ -302,47 +477,25 @@
                     return list;
                 }
             },
-            watch: {
-                secretClickCount(val) {
-                    if (val >= 5) {
-                        this.loginRitual();
-                        this.secretClickCount = 0;
-                    }
-                }
-            },
             async mounted() {
                 this.startRitual();
-                
-                // ESCUTA ATIVA DA SESSÃO
-                _supabase.auth.onAuthStateChange((event, session) => {
-                    this.userSession = session;
-                    if(session) console.log("Arconte Autenticado.");
-                });
 
                 await this.fetchFromSupabase();
                 this.initMissions();
             },
             methods: {
-                async loginRitual() {
-                    const email = prompt("E-mail do Arconte:");
-                    if(!email) return;
-                    const password = prompt("Chave do Abismo:");
-                    
-                    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-                    if (error) alert("Acesso negado. A escuridão te rejeita.");
-                    else alert("Pacto confirmado.");
-                },
-
                 editEntry(item) {
-                    if(!this.userSession) return;
+                    if(!this.isAdmin) return;
+                    this.showAdmin = false;
                     this.isEditing = true;
                     this.editingId = item.id;
-                    this.newItem = { ...item };
+                    this.cancelMetadataSearch(); this.metadataSelected = false;
+                    this.newItem = { synopsis: '', mal_id: null, ...item };
                     this.showModal = true;
                 },
 
                 async updateStep(index, amount) {
-                    if(!this.userSession) return;
+                    if(!this.isAdmin) return;
                     const item = this.filteredCatalog[index];
                     const novoValor = Math.max(0, (item.currentcount || 0) + amount);
 
@@ -355,59 +508,45 @@
                         item.currentcount = novoValor;
                         this.xp += 5;
                         this.playSound('snd-slash');
-                        this.checkMissions(); 
+                        this.checkMissions();
                     }
                 },
 
                 async removeEntry(index) {
-                    if(!this.userSession) return;
-                    if(confirm('Deseja banir esta alma do catálogo?')) {
-                        const item = this.filteredCatalog[index];
-                        const { error } = await _supabase.from('itens_catalogo').delete().eq('id', item.id);
-                        if (!error) {
-                            this.catalog = this.catalog.filter(i => i.id !== item.id);
-                            this.playSound('snd-slash');
-                        }
-                    }
+                    const item = this.filteredCatalog[index];
+                    if (item) await this.removeCatalogItem(item);
                 },
 
                 async saveEntry() {
-                    if(!this.userSession) return alert("Apenas o Arconte possui este poder.");
-                    if (!this.newItem.title) return alert("Dê um nome ao pacto!");
-                    
+                    if(!this.isAdmin || this.catalogSaving || this.synopsisTranslating) return;
+                    if (!this.newItem.title.trim()) return alert('Informe o título da obra.');
+                    if (this.newItem.poster && !window.ArkMetadata.imageURL(this.newItem.poster)) return alert('Informe uma URL HTTPS válida para a capa.');
+                    this.cancelMetadataSearch(); this.catalogSaving = true; this.catalogSaveError = ''; this.catalogSchemaMissing = false;
+                    const userId = this.userSession.user.id;
+                    const payload = Object.fromEntries(['title', 'type', 'poster', 'synopsis', 'mal_id', 'currentcount', 'totalcount', 'rating', 'status'].map(key => [key, this.newItem[key]]));
+                    payload.title = payload.title.trim(); payload.synopsis = (payload.synopsis || '').slice(0, 50000);
+                    payload.mal_id = Number.isInteger(payload.mal_id) && payload.mal_id > 0 ? payload.mal_id : null;
                     try {
                         if (this.isEditing) {
-                            const { data, error } = await _supabase.from('itens_catalogo').update(this.newItem).eq('id', this.editingId).select();
+                            const { data, error } = await _supabase.from('itens_catalogo').update(payload).eq('id', this.editingId).select().single();
                             if (error) throw error;
+                            if (userId !== this.userSession?.user?.id) return;
                             const idx = this.catalog.findIndex(i => i.id === this.editingId);
-                            if (idx !== -1) this.catalog[idx] = data[0];
+                            if (idx !== -1) this.catalog[idx] = data;
                         } else {
-                            const { data, error } = await _supabase.from('itens_catalogo').insert([this.newItem]).select();
+                            const { data, error } = await _supabase.from('itens_catalogo').insert(payload).select().single();
                             if (error) throw error;
-                            this.catalog.unshift(data[0]);
+                            if (userId !== this.userSession?.user?.id) return;
+                            this.catalog.unshift(data);
                         }
-                        this.closeModal(); 
+                        this.catalogSaving = false;
+                        this.closeModal();
                         this.playSound('snd-slash');
-                    } catch (err) { alert("Falha: " + err.message); }
-                },
-
-                async debounceBusca() {
-                    clearTimeout(this.timer);
-                    if (this.newItem.title.length < 3) { this.searchResults = []; return; }
-                    this.timer = setTimeout(async () => {
-                        try {
-                            const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(this.newItem.title)}&limit=5`);
-                            const data = await response.json();
-                            this.searchResults = data.data || [];
-                        } catch (e) { console.error(e); }
-                    }, 600);
-                },
-
-                selectResult(res) {
-                    this.newItem.title = res.title;
-                    this.newItem.poster = res.images.webp.large_image_url;
-                    this.newItem.totalcount = res.episodes || 0;
-                    this.searchResults = [];
+                    } catch (err) {
+                        if (userId !== this.userSession?.user?.id) return;
+                        this.catalogSchemaMissing = ['PGRST204', '42703'].includes(err.code);
+                        this.catalogSaveError = this.catalogSchemaMissing ? 'Faltam no banco os campos de sinopse. Seu preenchimento foi mantido; faça a atualização abaixo uma única vez.' : 'Não foi possível salvar: ' + err.message;
+                    } finally { this.catalogSaving = false; }
                 },
 
                 getCirclePos(n, total, radius) {
@@ -445,14 +584,23 @@
                 },
 
                 async fetchFromSupabase() {
-                    const { data } = await _supabase.from('itens_catalogo').select('*').order('created_at', { ascending: false });
-                    if (data) this.catalog = data;
+                    this.catalogError = '';
+                    try {
+                        const { data, error } = await _supabase.from('itens_catalogo').select('*').order('created_at', { ascending: false });
+                        if (error) {
+                            this.catalogError = error.code === 'PGRST205' ? 'A biblioteca ainda está sendo configurada.' : 'Não foi possível carregar a biblioteca. Tente novamente.';
+                            return;
+                        }
+                        if (data) this.catalog = data;
+                    } catch (_) { this.catalogError = 'Não foi possível conectar à biblioteca. Verifique sua conexão e tente novamente.'; }
                 },
 
                 getAura(rating) { return rating >= 9 ? 'aura-high' : ''; },
                 closeModal() {
+                    if (this.catalogSaving) return;
+                    this.cancelMetadataSearch(); this.metadataSelected = false;
                     this.showModal = false; this.isEditing = false; this.editingId = null;
-                    this.newItem = { title: '', type: 'Anime', poster: '', currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' };
+                    this.newItem = { title: '', type: 'Mangá', poster: '', synopsis: '', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' };
                 },
                 initMissions() {
                     this.dailyMissions = [
@@ -465,6 +613,7 @@
                     if(m && !m.completed) { m.progress++; if(m.progress >= m.goal) m.completed = true; }
                 },
                 exportData() {
+                    if (!this.isAdmin) return;
                     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.catalog));
                     const downloadAnchorNode = document.createElement('a');
                     downloadAnchorNode.setAttribute("href", dataStr);
@@ -472,12 +621,13 @@
                     downloadAnchorNode.click();
                 },
                 importData(event) {
+                    if (!this.isAdmin) return;
                     const file = event.target.files[0];
                     const reader = new FileReader();
                     reader.onload = (e) => { this.catalog = JSON.parse(e.target.result); };
                     reader.readAsText(file);
                 },
-                openModal() { this.showModal = true; }
+                openModal() { if (!this.isAdmin || this.readerBusy) return; this.cancelMetadataSearch(); this.metadataSelected = false; this.showAdmin = false; this.showModal = true; }
             }
         }).mount('#app')
     </script>

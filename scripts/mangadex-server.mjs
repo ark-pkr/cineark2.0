@@ -1,0 +1,40 @@
+import http from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import { createMangaDexProxy } from '../supabase/functions/_shared/mangadex-proxy.mjs';
+const root = fileURLToPath(new URL('../', import.meta.url));
+const handler = createMangaDexProxy();
+const port = Number(process.env.PORT || process.env.ARK_MANGADEX_PORT || 8787);
+const host = process.env.PORT ? '0.0.0.0' : '127.0.0.1';
+const publicOrigin = process.env.RENDER_EXTERNAL_URL ? new URL(process.env.RENDER_EXTERNAL_URL).origin : null;
+if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Porta inválida.');
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png' };
+const publicFiles = new Set(['index.html', 'reader.js', 'cloud-reader.js', 'mangadex.js', 'auth.js', 'metadata.js', 'translation.js', 'config.js', 'reader.css', 'manifest.json', 'sw.js', 'icone.png']);
+export const server = http.createServer(async (incoming, outgoing) => {
+    try {
+        const url = new URL(incoming.url, publicOrigin || `http://127.0.0.1:${port}`);
+        if (url.pathname === '/healthz' && incoming.method === 'GET') {
+            outgoing.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+            outgoing.end(JSON.stringify({ status: 'ok' })); return;
+        }
+        if (url.pathname === '/mangadex') {
+            const response = await handler(new Request(url, { method: incoming.method, headers: incoming.headers }));
+            outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+            if (response.body) for await (const chunk of response.body) {
+                if (outgoing.destroyed) break;
+                if (!outgoing.write(chunk)) await new Promise(resolve => outgoing.once('drain', resolve));
+            }
+            outgoing.end(); return;
+        }
+        if (incoming.method !== 'GET' && incoming.method !== 'HEAD') { outgoing.writeHead(405).end(); return; }
+        const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+        if (!publicFiles.has(file)) { outgoing.writeHead(404).end('Not found'); return; }
+        const data = await readFile(resolve(root, file));
+        const extension = file.slice(file.lastIndexOf('.'));
+        outgoing.writeHead(200, { 'Content-Type': types[extension] || 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+        outgoing.end(incoming.method === 'HEAD' ? undefined : data);
+    } catch (_) { if (!outgoing.headersSent) outgoing.writeHead(502); outgoing.end('Servidor indisponível'); }
+});
+server.listen(port, host, () => console.log(`CINE ARK + MangaDex: ${publicOrigin || `http://${host}:${port}`}`));
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));

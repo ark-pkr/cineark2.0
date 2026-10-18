@@ -1,6 +1,14 @@
-const CACHE_NAME = 'cine-ark-v2'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v13-hosting'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
+  './reader.js',
+  './mangadex.js',
+  './cloud-reader.js',
+  './auth.js',
+  './metadata.js',
+  './translation.js',
+  './config.js',
+  './reader.css',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/vue@3/dist/vue.global.js',
@@ -14,7 +22,7 @@ self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
-  self.skipWaiting(); 
+  self.skipWaiting();
 });
 
 // Ativação: Limpa caches antigos
@@ -29,6 +37,9 @@ self.addEventListener('activate', (e) => {
 // Estratégia: Stale-While-Revalidate + Cache de Imagens
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
+  // Never cache MangaDex API responses or image error responses with the application shell.
+  if (url.pathname.endsWith('/mangadex') || url.hostname === 'api.mangadex.org' || url.hostname === 'uploads.mangadex.org' || url.hostname.endsWith('.mangadex.network')) return;
+  if (e.request.method !== 'GET' || url.hostname.endsWith('supabase.co') || url.hostname === 'api.jikan.moe') return;
 
   // Cache especial para posters de animes (Imagens externas)
   if (e.request.destination === 'image') {
@@ -52,7 +63,7 @@ self.addEventListener('fetch', (e) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(e.request, networkResponse.clone()));
         return networkResponse;
       });
-      return cachedResponse || fetchPromise;
+      return fetchPromise.catch(() => cachedResponse || Response.error());
     })
   );
 });

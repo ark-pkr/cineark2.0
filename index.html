@@ -13,6 +13,7 @@
     <script src="cloud-reader.js"></script>
     <script src="reader.js"></script>
     <script src="external-progress.js"></script>
+    <script src="continue-reading.js"></script>
     <script src="mangadex.js"></script>
     <script src="auth.js"></script>
     <script src="translation.js"></script>
@@ -171,6 +172,17 @@
                 <h1 class="blood-title italic select-none">CINE ARK</h1>
                 <p class="ark-brand-caption">Seu próximo capítulo começa aqui</p>
             </header>
+
+            <section v-if="recentReadings.length" class="ark-resume" aria-labelledby="resume-title">
+                <div class="ark-resume-heading"><h2 id="resume-title">Continuar lendo</h2><span>Seu próximo capítulo está aqui</span></div>
+                <div class="ark-resume-grid">
+                    <button v-for="entry in recentReadings" :key="entry.work.id" @click="resumeReading(entry)" :disabled="resumeBusy || readerBusy" class="ark-resume-card" :aria-label="'Continuar lendo ' + entry.work.title">
+                        <img v-if="entry.work.poster" :src="entry.work.poster" alt="" loading="lazy">
+                        <div v-else class="ark-resume-cover"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
+                        <span class="ark-resume-info"><strong>{{ entry.work.title }}</strong><span>{{ entry.progress.source === 'mangadex' ? 'MangaDex' : 'Biblioteca' }}<template v-if="entry.progress.number != null"> · Cap. {{ entry.progress.number }}</template></span><span>Página {{ (Number(entry.progress.page) || 0) + 1 }}</span><span class="ark-resume-action">Continuar <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span></span>
+                    </button>
+                </div>
+            </section>
 
             <section class="mb-12">
                 <h2 class="text-[12px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 text-center">Missões do Vazio</h2>
@@ -441,7 +453,7 @@
         const { createApp } = Vue
 
         createApp({
-            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin],
+            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin, window.continueReadingMixin],
             data() {
                 return {
                     userSession: null,

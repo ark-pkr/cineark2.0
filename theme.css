@@ -22,12 +22,15 @@ body:has(.ark-overlay) { overflow:hidden; }
 
 /* A single lightweight, non-interactive layer follows every screen and dialog. */
 .ark-rune-field { position:fixed; inset:0; z-index:13000; overflow:hidden; pointer-events:none; user-select:none; transition:opacity .5s; }
-.ark-rune-field span { position:absolute; color:#de526e; font-family:'Noto Sans Runic','Segoe UI Historic',serif; font-size:var(--rune-size); line-height:1; opacity:.14; text-shadow:0 0 20px #ed315c80; animation:ark-rune-float var(--rune-duration) ease-in-out var(--rune-delay) infinite alternate; }
-.ark-rune-field.is-reading { opacity:.3; }
+.ark-rune-field span { position:absolute; color:#ff242e; font-family:'Noto Sans Runic','Segoe UI Historic',serif; font-size:calc(var(--rune-size) * 1.15); line-height:1; opacity:.4; text-shadow:0 0 6px #ff1728,0 0 18px #ef0013aa,0 0 36px #d9001a66; animation:ark-rune-float var(--rune-duration) ease-in-out var(--rune-delay) infinite alternate,ark-rune-pulse 4.8s ease-in-out var(--rune-delay) infinite; }
+.ark-rune-field.is-reading { opacity:.25; }
 @keyframes ark-rune-float {
-  0% { transform:translate3d(0,32px,0) rotate(-9deg); opacity:.07; }
-  50% { opacity:.23; }
-  100% { transform:translate3d(var(--rune-drift),-44px,0) rotate(12deg); opacity:.11; }
+  0% { transform:translate3d(0,32px,0) rotate(-9deg); }
+  100% { transform:translate3d(var(--rune-drift),-44px,0) rotate(12deg); }
+}
+@keyframes ark-rune-pulse {
+  0%,100% { opacity:.28; }
+  50% { opacity:.78; }
 }
 
 /* Library */
@@ -170,7 +173,7 @@ body:has(.ark-overlay) { overflow:hidden; }
   .ark-catalog-grid .movie-card .p-3 { padding:12px; }
   .ark-card-title { font-size:12px; }
   .ark-cover-type { font-size:8px; padding:4px 7px; top:8px; left:8px; }
-  .ark-rune-field span { font-size:calc(var(--rune-size) * .8); }
+  .ark-rune-field span { font-size:calc(var(--rune-size) * .95); }
   .ark-site-header .ark-brand-caption { font-size:9px; }
 }
 @media(prefers-reduced-motion:reduce) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v17-runes'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v18-red-runes'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
   './reader.js',

@@ -113,7 +113,7 @@ test('MangaDex progress stays separate from cloud progress and its database fore
     const { app, storage } = browser();
     app.readingProgress.work = { chapterId: 'uploaded-chapter', page: 7, remote: true, syncPending: false };
     app.activeChapter = { id: chapterId, source: 'mangadex', mangaId, number: '2', language: 'pt-br' }; app.readerPage = 3;
-    app._cloudAPI = { saveProgress() { throw new Error('External progress must not be written to cloud tables'); } };
+    app._cloudAPI = { saveProgress() { throw new Error('External progress must not be written to uploaded chapter tables'); } };
     app.saveReadingProgress(); await app.flushReadingProgress();
     assert.equal(app.readingProgress.work.page, 7);
     assert.equal(app.readingProgress['mangadex:work'].page, 3);

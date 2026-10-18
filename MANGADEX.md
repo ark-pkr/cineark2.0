@@ -41,9 +41,11 @@ O cliente usa `mangadexProxyUrl` em `config.js` quando preenchido. Em localhost,
 
 ## Progresso e vínculo com a obra
 
-A edição escolhida e o progresso de leitura MangaDex ficam neste navegador, separados por conta e por obra. Não são escritos nas tabelas de capítulos enviados, cujas chaves estrangeiras se referem aos seus próprios arquivos. O progresso dos capítulos publicados pelo seu painel continua sincronizado pelo Supabase. A sincronização entre dispositivos para capítulos externos é uma etapa futura.
+A edição lida, o idioma, o capítulo e a página MangaDex são sincronizados pela conta na tabela `ark_mangadex_progress`. Uma cópia local permanece disponível quando a rede falha. O progresso local das versões anteriores é enviado após a primeira conexão; registros mais antigos não substituem os mais recentes no banco. A seleção sem leitura ainda fica neste navegador; ao usar outro dispositivo, a edição do último capítulo lido é recuperada automaticamente.
 
-Nenhuma alteração SQL é necessária para esta integração.
+Para ativar a sincronização no projeto existente, execute `supabase/mangadex-progress.sql` no SQL Editor. O script cria uma tabela separada dos capítulos enviados, com RLS e políticas que permitem ao leitor acessar somente seu próprio progresso. A tabela não foi criada automaticamente nesta sessão, que não possui acesso administrativo ao Supabase. A consulta final deve retornar quatro políticas com `rls_enabled = true`.
+
+Depois de executar o script, recarregue o site e leia algumas páginas. O indicador deve mostrar **Progresso salvo na conta**. Entre na mesma conta em outro navegador/dispositivo, abra a obra e use **MangaDex → Continuar no MangaDex**. Sem a tabela, o site preserva o progresso local e mostra a configuração pendente. Falhas de rede são tentadas novamente ao reconectar ou reabrir a obra.
 
 ## Verificar
 

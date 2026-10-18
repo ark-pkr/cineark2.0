@@ -224,9 +224,13 @@ window.readerMixin = {
             const external = this.activeChapter.source === 'mangadex';
             const key = external ? 'mangadex:' + this.readingWork.id : this.readingWork.id;
             this.readingProgress[key] = { chapterId: this.activeChapter.id, page: this.readerPage,
-                remote, updatedAt: new Date().toISOString(), syncPending: remote,
+                remote, updatedAt: new Date().toISOString(), syncPending: remote || external,
                 ...(external ? { source: 'mangadex', mangaId: this.activeChapter.mangaId, number: this.activeChapter.number, language: this.activeChapter.language } : {}) };
             this.persistReadingProgress();
+            if (external && this.userSession) {
+                this.dexProgressSync = 'pending'; clearTimeout(this._dexProgressTimer);
+                this._dexProgressTimer = setTimeout(() => this.flushDexProgress(), 700);
+            }
             if (remote && this.userSession) {
                 this.progressSync = 'pending'; clearTimeout(this._progressTimer);
                 this._progressTimer = setTimeout(() => this.flushReadingProgress(), 700);
@@ -236,7 +240,8 @@ window.readerMixin = {
             try { localStorage.setItem(this.progressStorageKey(), JSON.stringify(this.readingProgress)); }
             catch (_) { this.readerError = 'O navegador não permitiu salvar o progresso.'; }
         },
-        loadReadingProgress() {
+        loadReadingProgress() { return Promise.all([this.loadLibraryReadingProgress(), this.loadDexProgress?.()]); },
+        loadLibraryReadingProgress() {
             const userId = this.userSession?.user?.id;
             if (!userId) return Promise.resolve();
             const request = this._progressLoadRequest = (this._progressLoadRequest || 0) + 1;
@@ -261,7 +266,8 @@ window.readerMixin = {
             })();
             return this._progressLoadingPromise;
         },
-        async flushReadingProgress() {
+        flushReadingProgress() { return Promise.all([this.flushLibraryProgress(), this.flushDexProgress?.()]); },
+        async flushLibraryProgress() {
             clearTimeout(this._progressTimer);
             const userId = this.userSession?.user?.id;
             if (!userId) return;

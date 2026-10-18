@@ -112,6 +112,12 @@ window.ArkCloudReader = class {
         if (removed.error) throw removed.error;
     }
     progress(userId) { return this.rows('ark_reading_progress', '*', ['user_id', userId], 'work_id'); }
+    dexProgress(userId) { return this.rows('ark_mangadex_progress', '*', ['user_id', userId], 'work_id'); }
+    async saveDexProgress(row) {
+        const { data, error } = await this.client.from('ark_mangadex_progress').upsert(row, { onConflict: 'user_id,work_id' }).select().single();
+        if (error) throw error;
+        return data;
+    }
     async saveProgress(row) {
         const { error } = await this.client.from('ark_reading_progress').upsert(row, { onConflict: 'user_id,work_id' });
         if (error) throw error;

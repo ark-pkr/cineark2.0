@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="reader.css">
     <script src="cloud-reader.js"></script>
     <script src="reader.js"></script>
+    <script src="external-progress.js"></script>
     <script src="mangadex.js"></script>
     <script src="auth.js"></script>
     <script src="translation.js"></script>
@@ -272,7 +273,8 @@
                     <button @click="setChapterSource('mangadex')" :disabled="readerBusy" :aria-pressed="chapterSource === 'mangadex'" :class="{ 'ark-btn-primary': chapterSource === 'mangadex' }">MangaDex</button>
                 </nav>
                 <section v-show="chapterSource === 'mangadex'">
-                    <p class="ark-note">Escolha a edição correta e o idioma. As páginas são carregadas da fonte durante a leitura; a disponibilidade varia por obra. O progresso MangaDex fica separado, neste dispositivo e nesta conta.</p>
+                    <p class="ark-note">Escolha a edição correta e o idioma. As páginas são carregadas da fonte durante a leitura; a disponibilidade varia por obra. O progresso é sincronizado com sua conta e mantém uma cópia neste dispositivo.</p>
+                    <p v-if="dexProgressError" class="ark-note" role="status">{{ dexProgressError }}</p>
                     <form @submit.prevent="searchMangaDex" class="ark-dex-search">
                         <label class="ark-field-label">Buscar obra no MangaDex<input v-model="dexQuery" class="ark-field" minlength="3" maxlength="150" required placeholder="Título da obra"></label>
                         <button :disabled="dexLoading || readerBusy" type="submit"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Buscar</button>
@@ -343,7 +345,7 @@
                 <label>Modo <select v-model="readingMode" @change="changeReadingMode"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
                 <label v-if="readingMode === 'paged'">Direção <select v-model="readingDirection"><option value="ltr">Esquerda para direita</option><option value="rtl">Direita para esquerda</option></select></label>
                 <button @click="readerFullscreen"><i class="fa-solid fa-expand" aria-hidden="true"></i>Tela cheia</button>
-                <span class="ark-sync-state">{{ activeChapter.source === 'mangadex' ? 'MangaDex: progresso salvo neste dispositivo' : activeChapter.source === 'local' ? 'Leitura de cópia local' : progressSync === 'saved' ? 'Progresso salvo na conta' : progressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente' }}</span>
+                <span class="ark-sync-state" role="status">{{ activeChapter.source === 'mangadex' ? (dexProgressSync === 'saved' ? 'Progresso salvo na conta' : dexProgressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente') : activeChapter.source === 'local' ? 'Leitura de cópia local' : progressSync === 'saved' ? 'Progresso salvo na conta' : progressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente' }}</span>
             </header>
             <div v-if="readerError" role="alert" class="ark-error">{{ readerError }} <button v-if="['remote', 'mangadex'].includes(activeChapter.source)" @click="readerError = ''; refreshSignedPages()">Recarregar páginas</button></div>
             <div ref="readerScroll" :class="['ark-pages', { paged: readingMode === 'paged' }]" :key="activeChapter.id + readingMode">
@@ -439,7 +441,7 @@
         const { createApp } = Vue
 
         createApp({
-            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin],
+            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin],
             data() {
                 return {
                     userSession: null,

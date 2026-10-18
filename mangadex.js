@@ -65,6 +65,9 @@ window.mangadexMixin = {
         async setChapterSource(source) {
             this.cancelMangaDex(); this.chapterSource = source;
             if (source !== 'mangadex' || !this.readingWork) return;
+            const userId = this.userSession?.user?.id, workId = this.readingWork.id;
+            await this.loadDexProgress?.();
+            if (userId !== this.userSession?.user?.id || workId !== this.readingWork?.id || this.chapterSource !== source) return;
             if (this.dexSelected && this.dexChapters.length) return;
             if (!this.dexSelected) {
                 try {
@@ -72,6 +75,10 @@ window.mangadexMixin = {
                     const saved = links[this.readingWork.id];
                     if (saved && /^[0-9a-f-]{36}$/i.test(saved.id)) { this.dexSelected = saved; this.dexLanguage = saved.language || 'pt-br'; }
                 } catch (_) {}
+                if (!this.dexSelected) {
+                    const saved = this.readingProgress['mangadex:' + workId];
+                    if (saved?.mangaId) { this.dexSelected = { id: saved.mangaId, title: this.readingWork.title }; this.dexLanguage = saved.language || 'pt-br'; }
+                }
             }
             if (this.dexSelected) return this.loadDexChapters();
             return this.searchMangaDex();
@@ -110,6 +117,9 @@ window.mangadexMixin = {
             });
         },
         async continueMangaDex() {
+            const userId = this.userSession?.user?.id, workId = this.readingWork?.id;
+            if (this._dexProgressLoad) await this._dexProgressLoad.promise;
+            if (!workId || workId !== this.readingWork?.id || userId !== this.userSession?.user?.id) return;
             const saved = this.readingProgress['mangadex:' + this.readingWork.id];
             let chapter = this.dexChapters.find(c => c.id === saved?.chapterId);
             // Do not fetch an entire series just to resume an older chapter.

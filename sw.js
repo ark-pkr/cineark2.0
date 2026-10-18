@@ -1,7 +1,8 @@
-const CACHE_NAME = 'cine-ark-v13-hosting'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v14-sync'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
   './reader.js',
+  './external-progress.js',
   './mangadex.js',
   './cloud-reader.js',
   './auth.js',

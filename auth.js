@@ -49,6 +49,8 @@ window.authMixin = {
                 this._chapterRequest = (this._chapterRequest || 0) + 1;
                 this._progressLoadRequest = (this._progressLoadRequest || 0) + 1;
                 clearTimeout(this._progressTimer); clearTimeout(this._progressLoadTimer);
+                clearTimeout(this._dexProgressTimer); this._dexProgressLoad = null;
+                this.dexProgressSync = ''; this.dexProgressError = '';
                 this.readingWork = null; this.showModal = false; this.showAdmin = false;
                 this.chapters = []; this.localChapters = []; this.readerBusy = false;
                 this.progressSync = ''; this.progressLoading = false; this._progressLoadingPromise = null;

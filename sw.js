@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v25-scattered-runes'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v26-splash-brand'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
   './reader.js',

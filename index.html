@@ -53,12 +53,16 @@
         }
 
         .inner-brand {
-            position: absolute; font-family: 'Bangers'; font-size: 3.5rem;
-            color: #300; letter-spacing: 5px; z-index: 50;
-            text-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
-            animation: pulse-brand 7s ease-in-out infinite;
+            position: absolute; font-family: 'Metal Mania', 'Bangers', fantasy; font-size: clamp(3rem, 9vw, 5rem);
+            color: #ff6373; letter-spacing: 5px; z-index: 50; white-space: nowrap; line-height: 1.2;
+            text-shadow: 0 2px 0 #700b24, 0 0 14px #ff234eaa, 0 0 42px #bd082855;
+            padding: 18px 24px; background: radial-gradient(ellipse, #140208ed 20%, #140208aa 48%, transparent 73%);
+            animation: splash-brand-glow 4s ease-in-out infinite;
             pointer-events: none; user-select: none;
         }
+
+        @keyframes splash-brand-glow { 0%, 100% { opacity: .9; transform: scale(1); } 50% { opacity: 1; transform: scale(1.035); } }
+        @media(prefers-reduced-motion:reduce) { .inner-brand { animation:none; } }
 
         .runes-layer { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
         .layer-outer { width: 100%; height: 100%; animation: rotate-runes 60s linear infinite; }
@@ -128,7 +132,7 @@
     <div id="blood-container" class="blood-screen"></div>
 
     <div id="app">
-        <div :class="['ark-rune-field', { 'is-reading': activeChapter, 'is-focused': activeChapter && readerFocus }]" aria-hidden="true">
+        <div :class="['ark-rune-field', { 'is-reading': activeChapter, 'is-focused': activeChapter && readerFocus, 'is-splash': isRitualLoading }]" aria-hidden="true">
             <span v-for="(rune, i) in ambientRunes" :key="'ambient-' + i" :style="rune.style">{{ rune.glyph }}</span>
         </div>
         <div :class="['blood-curtain', isExiting ? 'active' : '']"></div>

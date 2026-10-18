@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v16-gemini'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v17-runes'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
   './reader.js',
@@ -12,6 +12,7 @@ const ASSETS = [
   './translation.js',
   './config.js',
   './reader.css',
+  './theme.css',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/vue@3/dist/vue.global.js',

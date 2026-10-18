@@ -7,9 +7,10 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&family=Bangers&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&family=Bangers&family=Noto+Sans+Runic&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="reader.css">
+    <link rel="stylesheet" href="theme.css">
     <script src="cloud-reader.js"></script>
     <script src="reader.js"></script>
     <script src="external-progress.js"></script>
@@ -126,6 +127,9 @@
     <div id="blood-container" class="blood-screen"></div>
 
     <div id="app">
+        <div :class="['ark-rune-field', { 'is-reading': activeChapter }]" aria-hidden="true">
+            <span v-for="(rune, i) in ambientRunes" :key="'ambient-' + i" :style="rune.style">{{ rune.glyph }}</span>
+        </div>
         <div :class="['blood-curtain', isExiting ? 'active' : '']"></div>
 
         <div :class="['splash-screen', !isRitualLoading ? 'splash-hidden' : '']" @mousemove="parallaxRunes" @click="endRitual">
@@ -187,7 +191,7 @@
 
             <section class="mb-12">
                 <h2 class="text-[12px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 text-center">Missões do Vazio</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="ark-mission-grid">
                     <div v-for="m in dailyMissions" :key="m.id" :class="['mission-card p-4 rounded-2xl flex items-center justify-between', m.completed ? 'opacity-40 grayscale' : '']">
                         <div>
                             <p class="text-[10px] font-bold text-zinc-400 uppercase">{{ m.text }}</p>
@@ -211,17 +215,19 @@
                 <p>{{ catalogError }}</p>
                 <button @click="fetchFromSupabase" class="ark-btn ark-btn-secondary" style="margin-top:12px">Tentar novamente</button>
             </div>
-            <main class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            <div class="ark-library-heading"><div><span class="ark-eyebrow">O PORTAL ESTÁ ABERTO</span><h2>Sua biblioteca</h2></div><span>{{ filteredCatalog.length }} {{ filteredCatalog.length === 1 ? 'obra para explorar' : 'obras para explorar' }}</span></div>
+            <main class="ark-catalog-grid">
                 <div v-for="(item, index) in filteredCatalog" :key="item.id" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
                     <div class="relative aspect-[2/3] bg-zinc-900">
-                        <img :src="item.poster" loading="lazy" class="w-full h-full object-cover grayscale-[0.6] group-hover:grayscale-0 transition duration-700">
+                        <img :src="item.poster" :alt="'Capa de ' + item.title" loading="lazy" class="w-full h-full object-cover transition duration-700">
+                        <span class="ark-cover-type">{{ item.type }}</span>
                         <div class="absolute bottom-0 left-0 w-full h-1 bg-black/50">
                             <div class="h-full bg-red-600 shadow-[0_0_8px_#f00]" :style="{ width: Math.min(100, (item.currentcount / (item.totalcount || 1) * 100)) + '%' }"></div>
                         </div>
                         <button v-if="isAdmin" @click="removeEntry(index)" class="ark-card-delete" :aria-label="'Excluir ' + item.title"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
                     </div>
                     <div class="p-3 bg-black">
-                        <h3 @click="isAdmin ? editEntry(item) : null" :class="['text-[9px] font-black uppercase truncate mb-3 transition-colors', isAdmin ? 'cursor-pointer hover:text-red-600 text-zinc-400' : 'text-zinc-600']">
+                        <h3 @click="isAdmin ? editEntry(item) : null" :class="['ark-card-title', { 'is-editable': isAdmin }]" :title="item.title">
                             {{ item.title }}
                             <i v-if="isAdmin" class="fa-solid fa-pen-to-square ml-1 text-[7px] opacity-30"></i>
                         </h3>
@@ -241,11 +247,19 @@
 
 
         <section v-if="authView" class="ark-overlay ark-auth-overlay" style="z-index:12000" role="dialog" aria-modal="true" aria-labelledby="auth-heading">
+            <div class="ark-auth-scene">
+            <aside class="ark-auth-story">
+                <span class="ark-eyebrow">CINE ARK · SEU REFÚGIO DE LEITURA</span>
+                <div class="ark-auth-seal" aria-hidden="true"><span>ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ</span><i class="fa-solid fa-book-open"></i></div>
+                <h2>Entre no universo<br>da sua próxima<br><em>grande história.</em></h2>
+                <p>Um lugar para explorar mundos, acompanhar suas obras e continuar de onde parou.</p>
+                <div class="ark-auth-perks"><span><i class="fa-solid fa-bookmark" aria-hidden="true"></i>Seu progresso salvo</span><span><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i>Leitura em qualquer tela</span></div>
+            </aside>
             <div class="ark-panel ark-auth-panel">
                 <button @click="closeAuth" :disabled="authBusy" class="ark-btn ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
                 <div class="ark-auth-emblem"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
                 <h2 id="auth-heading" class="text-2xl font-bold mt-6">{{ authView === 'signup' ? 'Crie sua conta de leitor' : 'Entre no CINE ARK' }}</h2>
-                <p class="ark-note">Sua biblioteca de leitura começa aqui.</p>
+                <p class="ark-note">{{ authView === 'signup' ? 'Crie seu espaço. Sua próxima história espera por você.' : 'Suas histórias estão esperando. Continue sua jornada.' }}</p>
                 <form class="ark-form" @submit.prevent="submitAuth">
                     <label v-if="authView === 'signup'">Nome <input v-model="authName" autocomplete="nickname" maxlength="80" required :disabled="authBusy"></label>
                     <label>E-mail <input v-model="authEmail" type="email" autocomplete="email" required :disabled="authBusy"></label>
@@ -257,16 +271,19 @@
                     <button type="button" class="ark-btn-ghost" :disabled="authBusy" @click="openAuth(authView === 'signup' ? 'login' : 'signup')">{{ authView === 'signup' ? 'Já tenho conta' : 'Ainda não tenho conta' }}</button>
                 </form>
             </div>
+            </div>
         </section>
-        <section v-if="showAdmin && isAdmin" class="ark-overlay" role="dialog" aria-modal="true" aria-label="Painel administrativo">
-            <div class="ark-panel">
+        <section v-if="showAdmin && isAdmin" class="ark-overlay ark-admin-overlay" role="dialog" aria-modal="true" aria-label="Painel administrativo">
+            <div class="ark-panel ark-admin-panel">
                 <button @click="showAdmin = false" class="ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
-                <h2 class="text-2xl font-bold mt-6">Painel administrativo</h2>
-                <p class="ark-note">{{ catalog.length }} obras cadastradas. Gerencie a biblioteca e os capítulos.</p>
+                <div class="ark-page-heading"><div><span class="ark-eyebrow">CENTRO DE COMANDO</span><h2>Painel administrativo</h2><p>Organize suas obras e dê vida à biblioteca.</p></div><span class="ark-heading-icon" aria-hidden="true"><i class="fa-solid fa-sliders"></i></span></div>
+                <div class="ark-admin-stats"><div><i class="fa-solid fa-layer-group" aria-hidden="true"></i><strong>{{ catalog.length }}</strong><span>Obras na biblioteca</span></div><div><i class="fa-solid fa-book-open" aria-hidden="true"></i><strong>{{ catalog.filter(item => item.status === 'lendo').length }}</strong><span>Em leitura</span></div><div><i class="fa-solid fa-check" aria-hidden="true"></i><strong>{{ catalog.filter(item => item.status === 'lido').length }}</strong><span>Leituras concluídas</span></div></div>
                 <div class="ark-toolbar"><button @click="openModal" class="ark-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Cadastrar obra</button><button @click="exportData"><i class="fa-solid fa-arrow-down-to-bracket" aria-hidden="true"></i>Exportar catálogo</button></div>
+                <div class="ark-admin-list-heading"><h3>Gerenciar obras</h3><label class="ark-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="adminSearch" placeholder="Encontrar uma obra…" aria-label="Buscar obras no painel"></label></div>
                 <p v-if="!catalog.length" class="ark-note">Cadastre sua primeira obra para adicionar capítulos.</p>
-                <article v-for="(item, index) in catalog" :key="item.id" class="ark-chapter" style="flex-wrap:wrap">
-                    <strong>{{ item.title }}</strong>
+                <p v-else-if="!adminCatalog.length" class="ark-empty-state">Nenhuma obra encontrada. Experimente outro título.</p>
+                <article v-for="item in adminCatalog" :key="item.id" class="ark-chapter ark-admin-row">
+                    <div class="ark-admin-identity"><img v-if="item.poster" :src="item.poster" alt="" loading="lazy"><span v-else class="ark-admin-cover" aria-hidden="true"><i class="fa-solid fa-book"></i></span><div><strong>{{ item.title }}</strong><span>{{ item.type }}<span class="ark-status-dot">·</span>{{ item.status === 'lendo' ? 'Em leitura' : item.status === 'lido' ? 'Concluído' : 'Na lista' }}</span></div></div>
                     <div class="ark-toolbar">
                         <button @click="editEntry(item)"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>Editar</button>
                         <button v-if="item.type !== 'Anime'" @click="showAdmin = false; openWork(item)"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Capítulos</button>
@@ -275,15 +292,15 @@
                 </article>
             </div>
         </section>
-        <section v-if="readingWork && !activeChapter" class="ark-overlay" role="dialog" aria-modal="true" aria-label="Capítulos da obra">
-            <div class="ark-panel">
+        <section v-if="readingWork && !activeChapter" class="ark-overlay ark-work-overlay" role="dialog" aria-modal="true" aria-label="Capítulos da obra">
+            <div class="ark-panel ark-work-panel">
                 <button @click="readingWork = null" :disabled="readerBusy" class="ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
-                <h2 class="text-2xl font-bold mt-6">{{ readingWork.title }}</h2>
+                <div class="ark-work-hero"><img v-if="readingWork.poster" :src="readingWork.poster" :alt="'Capa de ' + readingWork.title" class="ark-work-cover"><div><span class="ark-eyebrow">SUA PRÓXIMA JORNADA</span><h2>{{ readingWork.title }}</h2><div class="ark-work-badges"><span>{{ readingWork.type }}</span><span><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingWork.totalcount || '?' }} capítulos</span></div><p>Escolha sua fonte e mergulhe na história.</p></div></div>
                 <div v-if="readingWork.synopsis" class="ark-synopsis"><h3>Sinopse</h3><p>{{ readingWork.synopsis }}</p></div>
                 <p v-if="readingWork.mal_id" class="ark-note">Referência da obra: <a :href="'https://myanimelist.net/manga/' + Number(readingWork.mal_id)" target="_blank" rel="noopener noreferrer" class="ark-source-link">MyAnimeList ↗</a></p>
                 <nav class="ark-source-tabs" aria-label="Fonte dos capítulos">
-                    <button @click="setChapterSource('library')" :disabled="readerBusy" :aria-pressed="chapterSource === 'library'" :class="{ 'ark-btn-primary': chapterSource === 'library' }">Biblioteca</button>
-                    <button @click="setChapterSource('mangadex')" :disabled="readerBusy" :aria-pressed="chapterSource === 'mangadex'" :class="{ 'ark-btn-primary': chapterSource === 'mangadex' }">MangaDex</button>
+                    <button @click="setChapterSource('library')" :disabled="readerBusy" :aria-pressed="chapterSource === 'library'" :class="{ 'ark-btn-primary': chapterSource === 'library' }"><i class="fa-solid fa-book" aria-hidden="true"></i>Biblioteca</button>
+                    <button @click="setChapterSource('mangadex')" :disabled="readerBusy" :aria-pressed="chapterSource === 'mangadex'" :class="{ 'ark-btn-primary': chapterSource === 'mangadex' }"><i class="fa-solid fa-globe" aria-hidden="true"></i>MangaDex</button>
                 </nav>
                 <section v-show="chapterSource === 'mangadex'">
                     <p class="ark-note">Escolha a edição correta e o idioma. As páginas são carregadas da fonte durante a leitura; a disponibilidade varia por obra. O progresso é sincronizado com sua conta e mantém uma cópia neste dispositivo.</p>
@@ -310,7 +327,7 @@
                         <div class="ark-dex-selected"><strong>{{ dexSelected.title }}</strong><a :href="'https://mangadex.org/title/' + dexSelected.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">Abrir no MangaDex ↗</a></div>
                         <button @click="loadDexChapters()" :disabled="dexLoading || readerBusy" class="ark-btn-ghost">Atualizar capítulos</button>
                         <button v-if="dexChapters.length" @click="continueMangaDex" :disabled="dexLoading || readerBusy" class="ark-btn-primary">{{ readingProgress['mangadex:' + readingWork.id] ? 'Continuar no MangaDex' : 'Começar leitura' }}</button>
-                        <p v-if="!dexLoading && !dexChapters.length && !dexError" class="ark-note">Não há capítulos disponíveis para leitura neste idioma. Escolha outro idioma ou consulte a fonte original.</p>
+                        <div v-if="!dexLoading && !dexChapters.length && !dexError" class="ark-empty-state"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><h3>Esta história ainda não chegou neste idioma</h3><p>Experimente outro idioma acima ou confira a obra na fonte original.</p></div>
                         <div v-for="chapter in dexChapters" :key="chapter.id" class="ark-chapter">
                             <button @click="openChapter(chapter)" :disabled="readerBusy || dexLoading" class="ark-chapter-open">Cap. {{ chapter.number }} {{ chapter.title ? '— ' + chapter.title : '' }} · {{ chapter.pageCount }} páginas <small v-if="chapter.group">· {{ chapter.group }}</small></button>
                         </div>
@@ -323,7 +340,7 @@
                 <p v-if="readerError" role="alert" class="ark-error">{{ readerError }}</p>
                 <p v-if="readerBusy" role="status" class="ark-note">Carregando...</p>
                 <button v-if="readingChapters.length" @click="continueReading" :disabled="readerBusy || progressLoading" class="ark-btn-primary"><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingProgress[readingWork.id] ? 'Continuar lendo' : 'Começar leitura' }}</button>
-                <p v-else-if="!readerBusy" class="ark-note">Nenhum capítulo publicado ainda.</p>
+                <div v-else-if="!readerBusy" class="ark-empty-state"><i class="fa-solid fa-book-open" aria-hidden="true"></i><h3>O próximo capítulo está por vir</h3><p>Ainda não há capítulos publicados na biblioteca. Você também pode consultar o MangaDex.</p></div>
                 <div v-for="chapter in chapters" :key="chapter.id" class="ark-chapter">
                     <button @click="openChapter(chapter)" :disabled="readerBusy || !chapter.published" class="ark-chapter-open"><i class="fa-regular fa-file-lines" aria-hidden="true"></i>Cap. {{ chapter.number }} {{ chapter.title ? ' - ' + chapter.title : '' }} - {{ chapter.pageCount }} páginas {{ chapter.published ? '' : '(rascunho incompleto)' }}</button>
                     <button v-if="isAdmin" @click="deleteChapter(chapter)" :disabled="readerBusy" class="ark-btn-danger" :aria-label="'Excluir capítulo ' + chapter.number"><i class="fa-regular fa-trash-can" aria-hidden="true"></i>Excluir</button>
@@ -478,7 +495,8 @@
                     currentSinisterMsg: "Iniciando rituais...",
                     sinisterPhrases: ["Drenando o vazio...","As runas chamam...","Invocando almas...","Selando o pacto...","Aura em ressonância...","Não há volta..."],
                     showModal: false, showLevelUp: false, isShaking: false,
-                    currentFilter: 'Todos', localSearch: '', catalogSaving: false,
+                    currentFilter: 'Todos', localSearch: '', adminSearch: '', catalogSaving: false,
+                    ambientRunes: Array.from({ length: 18 }, (_, i) => ({ glyph: ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᛟ','ᛗ','ᛉ'][i % 9], style: { left: [2,7,12,89,94,98,4,10,90,96,3,97,8,92,6,94,1,99][i] + '%', top: ((i * 19 + 7) % 94) + '%', '--rune-size': (24 + i % 4 * 7) + 'px', '--rune-duration': (22 + i % 6 * 4) + 's', '--rune-delay': (-i * 3) + 's', '--rune-drift': (i % 2 ? -18 : 18) + 'px' } })),
                     newItem: { title: '', type: 'Mangá', poster: '', synopsis: '', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
                     catalog: [], catalogError: '',
                     xp: 0,
@@ -493,6 +511,7 @@
                 }
             },
             computed: {
+                adminCatalog() { const query = this.adminSearch.trim().toLocaleLowerCase('pt-BR'); return this.catalog.filter(item => !query || item.title.toLocaleLowerCase('pt-BR').includes(query)); },
                 level() { return Math.floor(this.xp / 100) + 1; },
                 xpPercent() { return this.xp % 100; },
                 rankTitle() {

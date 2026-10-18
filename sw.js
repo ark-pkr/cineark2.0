@@ -1,9 +1,10 @@
-const CACHE_NAME = 'cine-ark-v15-continue'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v16-gemini'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
   './reader.js',
   './external-progress.js',
   './continue-reading.js',
+  './page-translation.js',
   './mangadex.js',
   './cloud-reader.js',
   './auth.js',

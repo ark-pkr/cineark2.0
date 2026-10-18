@@ -14,6 +14,7 @@
     <script src="reader.js"></script>
     <script src="external-progress.js"></script>
     <script src="continue-reading.js"></script>
+    <script src="page-translation.js"></script>
     <script src="mangadex.js"></script>
     <script src="auth.js"></script>
     <script src="translation.js"></script>
@@ -357,9 +358,11 @@
                 <label>Modo <select v-model="readingMode" @change="changeReadingMode"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
                 <label v-if="readingMode === 'paged'">Direção <select v-model="readingDirection"><option value="ltr">Esquerda para direita</option><option value="rtl">Direita para esquerda</option></select></label>
                 <button @click="readerFullscreen"><i class="fa-solid fa-expand" aria-hidden="true"></i>Tela cheia</button>
+                <button v-if="activeChapter.source === 'remote'" @click="translateReaderPage" :disabled="pageTranslationBusy || readerBusy" class="ark-btn-secondary"><i class="fa-solid fa-language" aria-hidden="true"></i>{{ pageTranslationBusy ? 'Traduzindo…' : 'Traduzir página ' + (readerPage + 1) }}</button>
                 <span class="ark-sync-state" role="status">{{ activeChapter.source === 'mangadex' ? (dexProgressSync === 'saved' ? 'Progresso salvo na conta' : dexProgressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente') : activeChapter.source === 'local' ? 'Leitura de cópia local' : progressSync === 'saved' ? 'Progresso salvo na conta' : progressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente' }}</span>
             </header>
             <div v-if="readerError" role="alert" class="ark-error">{{ readerError }} <button v-if="['remote', 'mangadex'].includes(activeChapter.source)" @click="readerError = ''; refreshSignedPages()">Recarregar páginas</button></div>
+            <div class="ark-reader-content">
             <div ref="readerScroll" :class="['ark-pages', { paged: readingMode === 'paged' }]" :key="activeChapter.id + readingMode">
                 <template v-if="readingMode === 'vertical'">
                     <div v-for="(url, i) in pageURLs" :key="url" :data-page="i" :style="{ minHeight: '100px', aspectRatio: activeChapter.dimensions?.[i] ? activeChapter.dimensions[i].width + ' / ' + activeChapter.dimensions[i].height : undefined, maxWidth: '900px', margin: '0 auto' }">
@@ -367,6 +370,18 @@
                     </div>
                 </template>
                 <img v-else :src="pageURLs[readerPage]" :data-chapter="activeChapter.id" @load="readerImageLoaded($event, readerPage)" :alt="'Página ' + (readerPage + 1)" @error="readerError = 'Não foi possível exibir esta página.'">
+            </div>
+            <aside v-if="pageTranslationOpen" class="ark-page-translation" aria-labelledby="page-translation-title" :aria-busy="pageTranslationBusy">
+                <div class="ark-translation-heading"><h2 id="page-translation-title">Tradução · Página {{ pageTranslationIndex + 1 }}</h2><button @click="cancelPageTranslation" class="ark-btn-ghost" aria-label="Fechar tradução">Fechar</button></div>
+                <p class="ark-note">Português do Brasil · Gemini. A tradução automática pode conter erros. Confira com o original.</p>
+                <p v-if="pageTranslationBusy" role="status">Reconhecendo os textos e traduzindo…</p>
+                <p v-if="pageTranslationError" class="ark-error" role="alert">{{ pageTranslationError }}</p>
+                <template v-if="pageTranslation">
+                    <p v-if="!pageTranslation.blocks.length" class="ark-note">Nenhum texto legível foi encontrado nesta página.</p>
+                    <p v-if="pageTranslation.note" class="ark-note">{{ pageTranslation.note }}</p>
+                    <ol class="ark-translation-blocks"><li v-for="(block, index) in pageTranslation.blocks" :key="index"><p>{{ block.translation }}</p><details><summary>Ver original</summary><p>{{ block.original }}</p></details></li></ol>
+                </template>
+            </aside>
             </div>
             <footer class="ark-toolbar ark-reader-footer">
                 <button :disabled="readerBusy || dexLoading || chapterIndex <= 0" @click="navigateReaderChapter(-1)">Cap. anterior</button>
@@ -453,7 +468,7 @@
         const { createApp } = Vue
 
         createApp({
-            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin, window.continueReadingMixin],
+            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin, window.continueReadingMixin, window.pageTranslationMixin],
             data() {
                 return {
                     userSession: null,

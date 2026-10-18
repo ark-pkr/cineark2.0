@@ -174,6 +174,7 @@ window.readerMixin = {
                     if (chapter.source !== 'remote' && chapter.source !== 'mangadex') urls.forEach(url => URL.revokeObjectURL(url)); return;
                 }
                 if (this.activeChapter) this.saveReadingProgress();
+                this.cancelPageTranslation?.();
                 this.releasePages(); this.readerLoading = true;
                 this.activeChapter = { ...chapter, dimensions: pages ? pages.map(p => ({ width: p.width, height: p.height })) : chapter.source === 'mangadex' ? urls.map(() => ({ width: 2, height: 3 })) : chapter.dimensions,
                     storagePages: pages, externalQuality: chapter.source === 'mangadex' ? this.dexQuality : null };
@@ -318,6 +319,7 @@ window.readerMixin = {
             this.chapterObserver?.disconnect(); this.pageURLs.filter(url => url.startsWith('blob:')).forEach(url => URL.revokeObjectURL(url)); this.pageURLs = [];
         },
         closeReader() {
+            this.cancelPageTranslation?.();
             this._chapterRequest = (this._chapterRequest || 0) + 1;
             this.saveReadingProgress(); this.flushReadingProgress(); this.releasePages(); this.activeChapter = null;
             this.readerBusy = false; document.body.style.overflow = '';

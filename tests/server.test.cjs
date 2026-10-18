@@ -11,7 +11,10 @@ test('production server binds PORT, serves readiness and does not expose private
         const base = 'http://127.0.0.1:18787';
         assert.equal((await fetch(base + '/healthz')).status, 200);
         assert.match(await (await fetch(base)).text(), /mangadex.js/);
-        for (const path of ['/.env', '/.git/config', '/supabase/config.toml', '/package.json']) {
+        assert.equal((await fetch(base + '/page-translation.js')).status, 200);
+        assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
+        assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'x'.repeat(3000) })).status, 413);
+        for (const path of ['/.env', '/.env.local', '/.git/config', '/supabase/config.toml', '/package.json']) {
             assert.equal((await fetch(base + path)).status, 404);
         }
         // A same-origin HTTPS browser request must pass CORS behind Render's TLS proxy.

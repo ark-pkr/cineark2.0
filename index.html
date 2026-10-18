@@ -151,8 +151,6 @@
             <div class="click-prompt" v-if="readyToEnter">Toque para selar o pacto de sangue</div>
         </div>
 
-        <audio id="snd-slash" src="https://www.myinstants.com/media/sounds/knife-slash.mp3"></audio>
-        <audio id="snd-hell" src="https://www.myinstants.com/media/sounds/hell-laugh.mp3"></audio>
 
         <div v-if="showLevelUp" class="lvl-up-overlay" @click="showLevelUp = false">
             <span class="text-white tracking-[1em] text-xs mb-4 uppercase">Evolução de Aura</span>
@@ -571,7 +569,6 @@
                     if (!error) {
                         item.currentcount = novoValor;
                         this.xp += 5;
-                        this.playSound('snd-slash');
                         this.checkMissions();
                     }
                 },
@@ -605,7 +602,6 @@
                         }
                         this.catalogSaving = false;
                         this.closeModal();
-                        this.playSound('snd-slash');
                     } catch (err) {
                         if (userId !== this.userSession?.user?.id) return;
                         this.catalogSchemaMissing = ['PGRST204', '42703'].includes(err.code);
@@ -624,14 +620,8 @@
                     this.runeStyles.forEach(s => s.transform = `translate(${x}px, ${y}px)`);
                 },
 
-                playSound(id) {
-                    const audio = document.getElementById(id);
-                    if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
-                },
-
                 endRitual() {
                     if(this.readyToEnter) {
-                        this.playSound('snd-hell');
                         this.isExiting = true;
                         setTimeout(() => this.isRitualLoading = false, 1200);
                     }

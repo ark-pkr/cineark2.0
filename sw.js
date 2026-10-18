@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v19-reader'; // Incrementado para forçar atualização
+const CACHE_NAME = 'cine-ark-v20-no-audio'; // Incrementado para forçar atualização
 const ASSETS = [
   './index.html',
   './reader.js',

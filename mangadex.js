@@ -47,7 +47,7 @@ window.mangadexMixin = {
         dexLoading: false, dexLoadingAll: false, dexError: '', dexSearched: false, dexLanguage: 'pt-br', dexQuality: 'economy', dexHasMore: false, dexNextOffset: 0,
         dexTotal: 0, dexLimited: false, dexVisibleLimit: 100 }; },
     computed: {
-        dexVisibleChapters() { return this.dexChapters.slice(0, this.dexVisibleLimit); }
+        dexVisibleChapters() { return (this.filteredDexChapters || this.dexChapters).slice(0, this.dexVisibleLimit); }
     },
     methods: {
         mangaDexAPI() { if (!this._mangaDexAPI) this._mangaDexAPI = new window.ArkMangaDex(); return this._mangaDexAPI; },
@@ -55,7 +55,7 @@ window.mangadexMixin = {
         resetMangaDex(item) {
             this.cancelMangaDex(); this.chapterSource = 'library'; this.dexQuery = item?.title || '';
             this.dexResults = []; this.dexChapters = []; this.dexSelected = null; this.dexError = ''; this.dexSearched = false;
-            this.dexLanguage = 'pt-br'; this.dexHasMore = false; this.dexNextOffset = 0;
+            this.dexLanguage = item?.reading_language || 'pt-br'; this.dexHasMore = false; this.dexNextOffset = 0;
             this.dexTotal = 0; this.dexLimited = false; this.dexVisibleLimit = 100;
         },
         async queryMangaDex(loader, apply) {

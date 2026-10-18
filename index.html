@@ -14,6 +14,7 @@
     <script src="cloud-reader.js"></script>
     <script src="reader.js"></script>
     <script src="reader-controls.js"></script>
+    <script src="personal-library.js"></script>
     <script src="external-progress.js"></script>
     <script src="continue-reading.js"></script>
     <script src="page-translation.js"></script>
@@ -173,7 +174,7 @@
                         </div>
                     </div>
                     <nav class="ark-account-actions" aria-label="Sua conta">
-                        <span v-if="userSession" class="ark-user-name" :title="readerName"><i class="fa-regular fa-user" aria-hidden="true"></i>{{ readerName }}</span>
+                        <button v-if="userSession" @click="openReaderProfile" class="ark-btn ark-btn-ghost" aria-label="Abrir meu perfil"><i class="fa-regular fa-user" aria-hidden="true"></i><span class="ark-user-name">{{ readerName }}</span></button>
                         <button v-if="isAdmin" @click="showAdmin = true" class="ark-btn ark-btn-secondary"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Administração</span></button>
                         <button v-if="userSession" @click="signOutReader" :disabled="authBusy || readerBusy" class="ark-btn ark-btn-ghost"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Sair</button>
                         <template v-else><button @click="openAuth('login')" :disabled="!authReady" class="ark-btn ark-btn-secondary"><i class="fa-regular fa-user" aria-hidden="true"></i>Entrar</button><button @click="openAuth('signup')" :disabled="!authReady" class="ark-btn ark-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Criar conta</button></template>
@@ -185,35 +186,36 @@
                 <img v-if="featuredWork.poster" :key="featuredWork.id" class="ark-spotlight-backdrop" :src="featuredWork.poster" alt="" fetchpriority="high">
                 <div class="ark-spotlight-shade"></div>
                 <div class="ark-spotlight-content">
-                    <img v-if="featuredWork.poster" class="ark-spotlight-cover" :src="featuredWork.poster" :alt="'Capa de ' + featuredWork.title">
+                    <img v-if="featuredWork.poster" width="200" height="280" class="ark-spotlight-cover" :src="featuredWork.poster" :alt="'Capa de ' + featuredWork.title">
                     <div class="ark-spotlight-info"><div class="ark-spotlight-meta"><span>{{ featuredWork.type }}</span><span>EM DESTAQUE</span><span><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i> CINE ARK</span></div><h1 id="feature-title">{{ featuredWork.title }}</h1><p>{{ featuredWork.synopsis || 'Uma nova história espera por você. Explore os detalhes da obra e os capítulos disponíveis na biblioteca.' }}</p><div class="ark-spotlight-actions"><button @click="openWork(featuredWork)" class="ark-btn ark-btn-primary"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Ler agora</button><button @click="openWork(featuredWork)" class="ark-btn ark-btn-secondary">Detalhes</button></div></div>
                 </div>
-                <div v-if="recentCatalog.length > 1" class="ark-spotlight-thumbs" role="group" aria-label="Escolher obra em destaque"><button v-for="work in recentCatalog" :key="work.id" @click="featuredWorkId = work.id" :class="{'is-active': featuredWork.id === work.id}" :aria-label="'Destacar ' + work.title" :aria-pressed="featuredWork.id === work.id"><img v-if="work.poster" :src="work.poster" :alt="work.title" loading="lazy"><span v-else>{{ work.title }}</span></button></div>
+                <div v-if="recentCatalog.length > 1" class="ark-spotlight-thumbs" role="group" aria-label="Escolher obra em destaque"><button v-for="work in recentCatalog" :key="work.id" @click="featuredWorkId = work.id" :class="{'is-active': featuredWork.id === work.id}" :aria-label="'Destacar ' + work.title" :aria-pressed="featuredWork.id === work.id"><img v-if="work.poster" :src="work.poster" :alt="work.title" loading="lazy" decoding="async"><span v-else>{{ work.title }}</span></button></div>
             </section>
-            <section v-if="recentCatalog.length" id="recentes" class="ark-shelf" aria-labelledby="new-works-heading"><div class="ark-section-heading"><span class="ark-section-icon"><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i></span><div><h2 id="new-works-heading">Novas no universo ARK</h2><p>As obras adicionadas mais recentemente</p></div><a href="#catalogo">Ver todas <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div><div class="ark-cover-rail"><button v-for="work in recentCatalog" :key="work.id" @click="openWork(work)" class="ark-rail-card"><span class="ark-rail-art"><img v-if="work.poster" :src="work.poster" :alt="'Capa de ' + work.title" loading="lazy"><i v-else class="fa-solid fa-book-open" aria-hidden="true"></i><small>{{ work.type }}</small></span><strong>{{ work.title }}</strong><span>Explorar cap&#237;tulos</span></button></div></section>
+            <section v-if="recentCatalog.length" id="recentes" class="ark-shelf" aria-labelledby="new-works-heading"><div class="ark-section-heading"><span class="ark-section-icon"><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i></span><div><h2 id="new-works-heading">Novas no universo ARK</h2><p>As obras adicionadas mais recentemente</p></div><a href="#catalogo">Ver todas <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div><div class="ark-cover-rail"><button v-for="work in recentCatalog" :key="work.id" @click="openWork(work)" class="ark-rail-card"><span class="ark-rail-art"><img v-if="work.poster" :src="work.poster" :alt="'Capa de ' + work.title" loading="lazy" decoding="async"><i v-else class="fa-solid fa-book-open" aria-hidden="true"></i><small>{{ work.type }}</small></span><strong>{{ work.title }}</strong><span>Explorar cap&#237;tulos</span></button></div></section>
 
             <section v-if="recentReadings.length" class="ark-resume" aria-labelledby="resume-title">
                 <div class="ark-resume-heading"><h2 id="resume-title">Continuar lendo</h2><span>Seu próximo capítulo está aqui</span></div>
                 <div class="ark-resume-grid">
                     <button v-for="entry in recentReadings" :key="entry.work.id" @click="resumeReading(entry)" :disabled="resumeBusy || readerBusy" class="ark-resume-card" :aria-label="'Continuar lendo ' + entry.work.title">
-                        <img v-if="entry.work.poster" :src="entry.work.poster" alt="" loading="lazy">
+                        <img v-if="entry.work.poster" :src="entry.work.poster" alt="" loading="lazy" decoding="async">
                         <div v-else class="ark-resume-cover"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
                         <span class="ark-resume-info"><strong>{{ entry.work.title }}</strong><span>{{ entry.progress.source === 'mangadex' ? 'MangaDex' : 'Biblioteca' }}<template v-if="entry.progress.number != null"> · Cap. {{ entry.progress.number }}</template></span><span>Página {{ (Number(entry.progress.page) || 0) + 1 }}</span><span class="ark-resume-action">Continuar <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span></span>
                     </button>
                 </div>
             </section>
 
-            <section v-for="shelf in discoveryShelves" :key="shelf.title" class="ark-shelf" :aria-label="shelf.title"><div class="ark-section-heading"><span class="ark-section-icon"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span><div><h2>{{ shelf.title }}</h2><p>Outros universos para descobrir</p></div><a href="#catalogo">Ver cat&#225;logo</a></div><div class="ark-cover-rail"><button v-for="work in shelf.works" :key="work.id" @click="openWork(work)" class="ark-rail-card"><span class="ark-rail-art"><img v-if="work.poster" :src="work.poster" :alt="'Capa de ' + work.title" loading="lazy"><small>{{ work.type }}</small></span><strong>{{ work.title }}</strong><span>Ver detalhes e cap&#237;tulos</span></button></div></section>
+            <section v-for="shelf in discoveryShelves" :key="shelf.title" class="ark-shelf" :aria-label="shelf.title"><div class="ark-section-heading"><span class="ark-section-icon"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span><div><h2>{{ shelf.title }}</h2><p>Outros universos para descobrir</p></div><a href="#catalogo">Ver cat&#225;logo</a></div><div class="ark-cover-rail"><button v-for="work in shelf.works" :key="work.id" @click="openWork(work)" class="ark-rail-card"><span class="ark-rail-art"><img v-if="work.poster" :src="work.poster" :alt="'Capa de ' + work.title" loading="lazy" decoding="async"><small>{{ work.type }}</small></span><strong>{{ work.title }}</strong><span>Ver detalhes e cap&#237;tulos</span></button></div></section>
             <div class="ark-discovery-layout ark-full-catalog"><section id="catalogo" class="ark-catalog-section" aria-label="Catálogo de obras">
             <div class="ark-library-tools">
                 <div class="ark-filters" role="group" aria-label="Filtrar biblioteca">
-                    <button v-for="f in ['Todos', 'lendo', 'lido', 'pretendo']" @click="currentFilter = f" :aria-pressed="currentFilter === f" :class="['ark-filter', { 'is-active': currentFilter === f }]">
-                        {{ f === 'lendo' ? 'Lendo' : f === 'lido' ? 'Concluídos' : f === 'pretendo' ? 'Quero ler' : 'Todos' }}
+                    <button v-for="f in ['Todos', 'favoritos', 'lendo', 'lido', 'pretendo']" @click="f !== 'Todos' && !userSession ? openAuth('login') : currentFilter = f" :aria-pressed="currentFilter === f" :class="['ark-filter', { 'is-active': currentFilter === f }]">
+                        {{ f === 'lendo' ? 'Lendo' : f === 'lido' ? 'Concluídos' : f === 'pretendo' ? 'Quero ler' : f === 'favoritos' ? 'Favoritos' : 'Todos' }}
                     </button>
                 </div>
                 <label class="ark-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="localSearch" aria-label="Buscar na biblioteca" placeholder="Buscar título..."></label>
             </div>
 
+            <p v-if="personalLoading" class="ark-note" role="status">Sincronizando sua biblioteca pessoal…</p><p v-if="personalError" class="ark-error" role="alert">{{ personalError }} <button @click="loadPersonalData" :disabled="personalLoading">Tentar sincronizar</button></p>
             <div v-if="catalogError" class="ark-error" role="status">
                 <p>{{ catalogError }}</p>
                 <button @click="fetchFromSupabase" class="ark-btn ark-btn-secondary" style="margin-top:12px">Tentar novamente</button>
@@ -222,10 +224,10 @@
             <label class="ark-sort">Ordenar por <select v-model="catalogSort"><option value="recent">Mais recentes</option><option value="title">Título A–Z</option></select></label>
             <p v-if="!filteredCatalog.length && !catalogError" class="ark-catalog-empty" role="status">{{ localSearch || currentFilter !== 'Todos' ? 'Nenhuma obra encontrada. Experimente outro título ou filtro.' : 'A biblioteca está sendo preparada. Volte em breve para explorar as obras.' }}</p>
             <main :class="['ark-catalog-grid', {'ark-catalog-list': catalogView === 'list'}]">
-                <div v-for="(item, index) in filteredCatalog" :key="item.id" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
+                <div v-for="(item, index) in visibleCatalog" :key="item.id" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
                     <div class="relative aspect-[2/3] bg-zinc-900 ark-poster-link"><button @click="openWork(item)" class="ark-poster-hit" :aria-label="'Ver capítulos de ' + item.title"></button>
-                        <img :src="item.poster" :alt="'Capa de ' + item.title" loading="lazy" class="w-full h-full object-cover transition duration-700">
-                        <span class="ark-cover-type">{{ item.type }}</span>
+                        <img :src="item.poster" :alt="'Capa de ' + item.title" loading="lazy" decoding="async" class="w-full h-full object-cover transition duration-700">
+                        <span class="ark-cover-type">{{ item.type }}</span><button @click="updatePersonalWork(item, {favorite: !personalLibrary[item.id]?.favorite})" :disabled="personalBusy" class="ark-card-favorite" :aria-label="(personalLibrary[item.id]?.favorite ? 'Remover dos favoritos: ' : 'Favoritar: ') + item.title" :aria-pressed="!!personalLibrary[item.id]?.favorite"><i :class="personalLibrary[item.id]?.favorite ? 'fa-solid fa-heart' : 'fa-regular fa-heart'" aria-hidden="true"></i></button>
                         <div class="absolute bottom-0 left-0 w-full h-1 bg-black/50">
                             <div class="h-full bg-red-600 shadow-[0_0_8px_#f00]" :style="{ width: Math.min(100, (item.currentcount / (item.totalcount || 1) * 100)) + '%' }"></div>
                         </div>
@@ -241,13 +243,11 @@
                             <span class="text-[10px] font-black text-red-600">{{ item.currentcount }}/{{ item.totalcount || '?' }}</span>
                             <button @click="updateStep(index, 1)" class="ark-step" aria-label="Aumentar progresso">+</button>
                         </div>
-                        <div v-else class="text-center py-1">
-                             <span class="text-[10px] font-black text-red-600/60">{{ item.currentcount }}/{{ item.totalcount || '?' }}</span>
-                        </div>
+                        <div v-else class="ark-card-personal-status">{{ personalLibrary[item.id]?.status === 'lendo' ? 'Na sua lista: lendo' : personalLibrary[item.id]?.status === 'lido' ? 'Leitura concluída' : personalLibrary[item.id] ? 'Na sua lista de desejos' : item.type }}</div>
                         <button v-if="item.type !== 'Anime'" @click="openWork(item)" class="ark-btn ark-btn-primary ark-read-button"><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingProgress[item.id] ? 'Continuar lendo' : 'Ler capítulos' }}</button>
                     </div>
                 </div>
-            </main></section>
+            </main><button v-if="catalogLimit < filteredCatalog.length" @click="catalogLimit += 24" class="ark-btn ark-btn-secondary ark-load-more">Mostrar mais obras ({{ filteredCatalog.length - catalogLimit }})</button></section>
 </div>
             <footer class="ark-site-footer"><span class="ark-wordmark">CINE <span>ARK</span></span><p>Seu próximo capítulo começa aqui.</p><a href="#catalogo">Explorar biblioteca ↑</a></footer>
         </div>
@@ -265,21 +265,22 @@
             <div class="ark-panel ark-auth-panel">
                 <button @click="closeAuth" :disabled="authBusy" class="ark-btn ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
                 <div class="ark-auth-emblem"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
-                <h2 id="auth-heading" class="text-2xl font-bold mt-6">{{ authView === 'signup' ? 'Crie sua conta de leitor' : 'Entre no CINE ARK' }}</h2>
+                <h2 id="auth-heading" class="text-2xl font-bold mt-6">{{ authView === 'forgot' ? 'Recuperar acesso' : authView === 'reset' ? 'Defina sua nova senha' : authView === 'signup' ? 'Crie sua conta de leitor' : 'Entre no CINE ARK' }}</h2>
                 <p class="ark-note">{{ authView === 'signup' ? 'Crie seu espaço. Sua próxima história espera por você.' : 'Suas histórias estão esperando. Continue sua jornada.' }}</p>
                 <form class="ark-form" @submit.prevent="submitAuth">
                     <label v-if="authView === 'signup'">Nome <input v-model="authName" autocomplete="nickname" maxlength="80" required :disabled="authBusy"></label>
-                    <label>E-mail <input v-model="authEmail" type="email" autocomplete="email" required :disabled="authBusy"></label>
-                    <label>Senha <input v-model="authPassword" type="password" :autocomplete="authView === 'signup' ? 'new-password' : 'current-password'" :minlength="authView === 'signup' ? 8 : 1" required :disabled="authBusy"></label>
-                    <label v-if="authView === 'signup'">Confirmar senha <input v-model="authConfirm" type="password" autocomplete="new-password" minlength="8" required :disabled="authBusy"></label>
+                    <label v-if="authView !== 'reset'">E-mail <input v-model="authEmail" type="email" autocomplete="email" required :disabled="authBusy"></label>
+                    <label v-if="authView !== 'forgot'">Senha <input v-model="authPassword" type="password" :autocomplete="['signup','reset'].includes(authView) ? 'new-password' : 'current-password'" :minlength="['signup','reset'].includes(authView) ? 8 : 1" required :disabled="authBusy"></label>
+                    <label v-if="['signup','reset'].includes(authView)">Confirmar senha <input v-model="authConfirm" type="password" autocomplete="new-password" minlength="8" required :disabled="authBusy"></label>
                     <p v-if="authError" class="ark-error" role="alert">{{ authError }}</p>
                     <p v-if="authMessage" class="ark-note" role="status">{{ authMessage }}</p>
-                    <button type="submit" :disabled="authBusy">{{ authBusy ? 'Aguarde…' : authView === 'signup' ? 'Criar conta' : 'Entrar' }}</button>
-                    <button type="button" class="ark-btn-ghost" :disabled="authBusy" @click="openAuth(authView === 'signup' ? 'login' : 'signup')">{{ authView === 'signup' ? 'Já tenho conta' : 'Ainda não tenho conta' }}</button>
+                    <button type="submit" :disabled="authBusy">{{ authBusy ? 'Aguarde…' : authView === 'forgot' ? 'Enviar link de recuperação' : authView === 'reset' ? 'Salvar nova senha' : authView === 'signup' ? 'Criar conta' : 'Entrar' }}</button>
+                    <button v-if="authView === 'login'" type="button" class="ark-btn-ghost" @click="openAuth('forgot')" :disabled="authBusy">Esqueci minha senha</button><button type="button" class="ark-btn-ghost" :disabled="authBusy" @click="openAuth(['signup','forgot','reset'].includes(authView) ? 'login' : 'signup')">{{ ['signup','forgot','reset'].includes(authView) ? 'Voltar para entrar' : 'Ainda não tenho conta' }}</button>
                 </form>
             </div>
             </div>
         </section>
+        <section v-if="showProfile && userSession" class="ark-overlay" role="dialog" aria-modal="true" aria-labelledby="profile-heading"><div class="ark-panel ark-profile-panel"><button @click="showProfile = false" class="ark-btn ark-btn-ghost ark-back">← Biblioteca</button><span class="ark-eyebrow">SEU REFÚGIO NO ARK</span><h2 id="profile-heading">Meu perfil de leitor</h2><p class="ark-note">{{ userSession.user.email }}</p><div class="ark-profile-stats"><div><strong>{{ personalStats.favorites }}</strong><span>Favoritos</span></div><div><strong>{{ personalStats.reading }}</strong><span>Lendo</span></div><div><strong>{{ personalStats.completed }}</strong><span>Obras concluídas</span></div><div><strong>{{ personalStats.chapters }}</strong><span>Capítulos concluídos</span></div></div><form class="ark-form" @submit.prevent="saveProfileName"><label>Como quer ser chamado?<input v-model="profileName" maxlength="80" autocomplete="nickname" required></label><button :disabled="personalBusy" type="submit">Salvar nome</button><p v-if="profileMessage" role="status" class="ark-note">{{ profileMessage }}</p></form><p v-if="personalError" role="alert" class="ark-error">{{ personalError }} <button @click="loadPersonalData" :disabled="personalLoading">Tentar novamente</button></p><button @click="loadPersonalData" :disabled="personalLoading" class="ark-btn ark-btn-secondary ark-load-more">{{ personalLoading ? 'Sincronizando...' : 'Atualizar biblioteca pessoal' }}</button><div class="ark-section-heading"><h3>Histórico de capítulos concluídos</h3></div><p class="ark-note">Registrados ao chegar à última página. Mostrando os 50 mais recentes.</p><p v-if="!profileHistory.length" class="ark-empty-state">Suas próximas leituras concluídas aparecerão aqui.</p><div v-for="row in profileHistory.slice(0,50)" :key="row.source + row.chapter_id" class="ark-history-row"><div><strong>{{ historyWork(row)?.title || 'Obra indisponível' }}</strong><span>Cap. {{ row.chapter_number }} · {{ row.source === 'mangadex' ? 'MangaDex' : 'Biblioteca' }} · {{ new Date(row.read_at).toLocaleDateString('pt-BR') }}</span></div><button v-if="historyWork(row)" @click="showProfile = false; openWork(historyWork(row))" class="ark-btn ark-btn-secondary">Ver obra</button></div></div></section>
         <section v-if="showAdmin && isAdmin" class="ark-overlay ark-admin-overlay" role="dialog" aria-modal="true" aria-label="Painel administrativo">
             <div class="ark-panel ark-admin-panel">
                 <button @click="showAdmin = false" class="ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
@@ -290,7 +291,7 @@
                 <p v-if="!catalog.length" class="ark-note">Cadastre sua primeira obra para adicionar capítulos.</p>
                 <p v-else-if="!adminCatalog.length" class="ark-empty-state">Nenhuma obra encontrada. Experimente outro título.</p>
                 <article v-for="item in adminCatalog" :key="item.id" class="ark-chapter ark-admin-row">
-                    <div class="ark-admin-identity"><img v-if="item.poster" :src="item.poster" alt="" loading="lazy"><span v-else class="ark-admin-cover" aria-hidden="true"><i class="fa-solid fa-book"></i></span><div><strong>{{ item.title }}</strong><span>{{ item.type }}<span class="ark-status-dot">·</span>{{ item.status === 'lendo' ? 'Em leitura' : item.status === 'lido' ? 'Concluído' : 'Na lista' }}</span></div></div>
+                    <div class="ark-admin-identity"><img v-if="item.poster" :src="item.poster" alt="" loading="lazy" decoding="async"><span v-else class="ark-admin-cover" aria-hidden="true"><i class="fa-solid fa-book"></i></span><div><strong>{{ item.title }}</strong><span>{{ item.type }}<span class="ark-status-dot">·</span>{{ item.status === 'lendo' ? 'Em leitura' : item.status === 'lido' ? 'Concluído' : 'Na lista' }}</span></div></div>
                     <div class="ark-toolbar">
                         <button @click="editEntry(item)"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>Editar</button>
                         <button v-if="item.type !== 'Anime'" @click="showAdmin = false; openWork(item)"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Capítulos</button>
@@ -303,6 +304,9 @@
             <div class="ark-panel ark-work-panel">
                 <button @click="readingWork = null" :disabled="readerBusy" class="ark-btn-ghost ark-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Biblioteca</button>
                 <div class="ark-work-hero"><img v-if="readingWork.poster" :src="readingWork.poster" :alt="'Capa de ' + readingWork.title" class="ark-work-cover"><div><span class="ark-eyebrow">SUA PRÓXIMA JORNADA</span><h2>{{ readingWork.title }}</h2><div class="ark-work-badges"><span>{{ readingWork.type }}</span><span><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingWork.totalcount || '?' }} capítulos</span></div><p>Escolha sua fonte e mergulhe na história.</p></div></div>
+                <div class="ark-personal-actions"><button @click="updatePersonalWork(readingWork, {favorite: !personalLibrary[readingWork.id]?.favorite})" :disabled="personalBusy" class="ark-btn ark-btn-secondary" :aria-pressed="!!personalLibrary[readingWork.id]?.favorite"><i :class="personalLibrary[readingWork.id]?.favorite ? 'fa-solid fa-heart' : 'fa-regular fa-heart'" aria-hidden="true"></i>{{ personalLibrary[readingWork.id]?.favorite ? 'Nos favoritos' : 'Favoritar' }}</button><label>Minha lista<select :value="personalLibrary[readingWork.id]?.status || ''" @change="changePersonalStatus(readingWork, $event)" :disabled="personalBusy"><option disabled value="">Adicionar à minha lista</option><option value="lendo">Lendo</option><option value="lido">Concluído</option><option value="pretendo">Quero ler</option></select></label></div><p v-if="personalError" class="ark-error" role="alert">{{ personalError }}</p><div class="ark-work-metadata"><p v-if="readingWork.author"><strong>Autor / arte:</strong> {{ readingWork.author }}</p><div v-if="readingWork.genres?.length" class="ark-genre-tags"><span v-for="genre in readingWork.genres" :key="genre">{{ genre }}</span></div></div>
+                <div class="ark-source-availability"><span><strong>Biblioteca:</strong> {{ chapters.filter(c=>c.published).length }} capítulos publicados</span><span><strong>MangaDex:</strong> {{ dexSelected ? dexChapters.length + ' versões encontradas em ' + languageLabel(dexLanguage) : 'Selecione uma edição e idioma para consultar' }}</span><small>A consulta carrega a lista. As imagens são carregadas ao abrir um capítulo.</small></div>
+                <div class="ark-work-chapter-tools"><label>Buscar capítulo<input v-model="chapterSearch" placeholder="Número, título ou grupo" class="ark-field"></label><label>Ordem<select v-model="chapterOrder" class="ark-field"><option value="asc">Primeiro ao último</option><option value="desc">Último ao primeiro</option></select></label></div>
                 <div v-if="readingWork.synopsis" class="ark-synopsis"><h3>Sinopse</h3><p>{{ readingWork.synopsis }}</p></div>
                 <p v-if="readingWork.mal_id" class="ark-note">Referência da obra: <a :href="'https://myanimelist.net/manga/' + Number(readingWork.mal_id)" target="_blank" rel="noopener noreferrer" class="ark-source-link">MyAnimeList ↗</a></p>
                 <nav class="ark-source-tabs" aria-label="Fonte dos capítulos">
@@ -317,7 +321,7 @@
                         <button :disabled="dexLoading || readerBusy" type="submit"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Buscar</button>
                     </form>
                     <div class="ark-dex-options">
-                        <label>Idioma<select v-model="dexLanguage" @change="loadDexChapters()" :disabled="readerBusy"><option value="pt-br">Português (Brasil)</option><option value="pt">Português (Portugal)</option><option value="en">Inglês</option></select></label>
+                        <label>Idioma<select v-model="dexLanguage" @change="loadDexChapters()" :disabled="readerBusy"><option v-for="language in languageOptions" :key="language.code" :value="language.code">{{ language.label }}</option></select></label>
                         <label>Imagens<select v-model="dexQuality" :disabled="readerBusy"><option value="economy">Econômicas</option><option value="original">Qualidade original</option></select></label>
                     </div>
                     <div v-if="dexLoadingAll" class="ark-feed-progress" role="status"><div><strong>Buscando todos os capítulos</strong><span>{{ dexChapters.length }} encontrados</span></div><progress v-if="dexTotal" :value="dexNextOffset" :max="dexTotal"></progress><button @click="cancelMangaDex" class="ark-btn-ghost">Parar busca</button></div>
@@ -326,7 +330,7 @@
                     <div v-if="!dexSelected">
                         <p v-if="dexSearched && !dexResults.length && !dexLoading" class="ark-note">Nenhuma obra encontrada. Tente o título original ou outro nome.</p>
                         <article v-for="manga in dexResults" :key="manga.id" class="ark-dex-result">
-                            <img v-if="manga.hasCover" :src="mangaDexAPI().cover(manga.id)" loading="lazy" alt="">
+                            <img v-if="manga.hasCover" :src="mangaDexAPI().cover(manga.id)" loading="lazy" decoding="async" alt="">
                             <div><strong>{{ manga.title }}</strong><small>{{ manga.year || '' }} · {{ manga.originalLanguage }} · {{ manga.status }}</small><p>{{ manga.alternateTitles.join(' · ') }}</p></div>
                             <button @click="selectDexManga(manga)" :disabled="dexLoading || readerBusy" class="ark-btn-primary">Ver capítulos</button>
                         </article>
@@ -337,10 +341,11 @@
                         <p v-if="dexLimited" class="ark-note">A fonte limitou os resultados desta consulta. A lista pode não incluir todas as versões.</p>
                         <button v-if="dexChapters.length" @click="continueMangaDex" :disabled="readerBusy" class="ark-btn-primary">{{ readingProgress['mangadex:' + readingWork.id] ? 'Continuar no MangaDex' : 'Começar leitura' }}</button>
                         <div v-if="!dexLoading && !dexChapters.length && !dexError" class="ark-empty-state"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><h3>Esta história ainda não chegou neste idioma</h3><p>Experimente outro idioma acima ou confira a obra na fonte original.</p></div>
+                        <p v-if="chapterSearch && !filteredDexChapters.length && !dexLoading" class="ark-note">Nenhum cap&#237;tulo corresponde a esta busca nesta edi&#231;&#227;o e idioma.</p>
                         <div v-for="chapter in dexVisibleChapters" :key="chapter.id" class="ark-chapter">
-                            <button @click="openChapter(chapter)" :disabled="readerBusy" class="ark-chapter-open">Cap. {{ chapter.number }} {{ chapter.title ? '— ' + chapter.title : '' }} · {{ chapter.pageCount }} páginas <small v-if="chapter.group">· {{ chapter.group }}</small></button>
+                            <span v-if="chapterWasRead(chapter)" class="ark-read-badge">✓ Lido</span><button @click="openChapter(chapter)" :disabled="readerBusy" class="ark-chapter-open">Cap. {{ chapter.number }} {{ chapter.title ? '— ' + chapter.title : '' }} · {{ chapter.pageCount }} páginas <small v-if="chapter.group">· {{ chapter.group }}</small></button>
                         </div>
-                        <button v-if="dexVisibleLimit < dexChapters.length" @click="dexVisibleLimit += 100">Mostrar mais {{ Math.min(100, dexChapters.length - dexVisibleLimit) }} capítulos</button>
+                        <button v-if="dexVisibleLimit < filteredDexChapters.length" @click="dexVisibleLimit += 100">Mostrar mais {{ Math.min(100, filteredDexChapters.length - dexVisibleLimit) }} capítulos</button>
                         <button v-if="dexHasMore && !dexLoading" @click="loadDexChapters(true, true)" :disabled="readerBusy">Continuar busca de todos os capítulos</button>
                     </template>
                 </section>
@@ -351,10 +356,11 @@
                 <p v-if="readerBusy" role="status" class="ark-note">Carregando...</p>
                 <button v-if="readingChapters.length" @click="continueReading" :disabled="readerBusy || progressLoading" class="ark-btn-primary"><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingProgress[readingWork.id] ? 'Continuar lendo' : 'Começar leitura' }}</button>
                 <div v-else-if="!readerBusy" class="ark-empty-state"><i class="fa-solid fa-book-open" aria-hidden="true"></i><h3>O próximo capítulo está por vir</h3><p>Ainda não há capítulos publicados na biblioteca. Você também pode consultar o MangaDex.</p></div>
-                <div v-for="chapter in chapters" :key="chapter.id" class="ark-chapter">
-                    <button @click="openChapter(chapter)" :disabled="readerBusy || !chapter.published" class="ark-chapter-open"><i class="fa-regular fa-file-lines" aria-hidden="true"></i>Cap. {{ chapter.number }} {{ chapter.title ? ' - ' + chapter.title : '' }} - {{ chapter.pageCount }} páginas {{ chapter.published ? '' : '(rascunho incompleto)' }}</button>
+                <div v-for="chapter in filteredLibraryChapters.slice(0,workChapterLimit)" :key="chapter.id" class="ark-chapter">
+                    <span v-if="chapterWasRead(chapter)" class="ark-read-badge">✓ Lido</span><button @click="openChapter(chapter)" :disabled="readerBusy || !chapter.published" class="ark-chapter-open"><i class="fa-regular fa-file-lines" aria-hidden="true"></i>Cap. {{ chapter.number }} {{ chapter.title ? ' - ' + chapter.title : '' }} - {{ chapter.pageCount }} páginas {{ chapter.published ? '' : '(rascunho incompleto)' }}</button>
                     <button v-if="isAdmin" @click="deleteChapter(chapter)" :disabled="readerBusy" class="ark-btn-danger" :aria-label="'Excluir capítulo ' + chapter.number"><i class="fa-regular fa-trash-can" aria-hidden="true"></i>Excluir</button>
                 </div>
+                <button v-if="workChapterLimit < filteredLibraryChapters.length" @click="workChapterLimit += 100" class="ark-btn ark-btn-secondary">Mostrar mais cap&#237;tulos</button><p v-if="chapterSearch && !filteredLibraryChapters.length && !readerBusy" class="ark-note">Nenhum cap&#237;tulo corresponde a esta busca na biblioteca.</p>
                 <section v-if="isAdmin && localChapters.length" class="ark-local-chapters">
                     <h3 class="font-bold">Capítulos antigos deste dispositivo</h3>
                     <p class="ark-note">As cópias locais foram preservadas. Publique cada capítulo para disponibilizá-lo online. Um número já utilizado precisa ser resolvido antes da publicação.</p>
@@ -377,7 +383,7 @@
                 </section>
             </div>
         </section>
-        <section v-if="activeChapter" ref="readerShell" :class="['ark-overlay', 'ark-reader', { 'is-focus': readerFocus }]" :style="{ '--reader-width': readerImageWidth }" role="dialog" aria-modal="true" aria-label="Leitor de capítulos">
+        <section v-if="activeChapter" ref="readerShell" :class="['ark-overlay', 'ark-reader', { 'is-focus': readerFocus }]" :style="{ '--reader-width': readerImageWidth, '--reader-brightness': readerBrightness / 100, '--reader-spacing': readerSpacing + 'px' }" role="dialog" aria-modal="true" aria-label="Leitor de capítulos">
             <button v-if="readerFocus" @click="readerFocus = false" class="ark-reader-restore"><i class="fa-solid fa-eye" aria-hidden="true"></i>Mostrar controles</button>
             <header class="ark-toolbar ark-reader-header">
                 <div class="ark-reader-topline">
@@ -386,9 +392,10 @@
                     <div class="ark-reader-header-actions"><button @click="toggleReaderDrawer" :aria-expanded="readerDrawerOpen" aria-controls="reader-chapter-drawer" :class="{ 'ark-btn-primary': readerDrawerOpen }"><i class="fa-solid fa-list" aria-hidden="true"></i><span>Capítulos</span></button><button @click="readerFocus = true; readerDrawerOpen = false" title="Ler sem distrações"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i><span>Foco</span></button><button @click="readerFullscreen" aria-label="Tela cheia"><i class="fa-solid fa-expand" aria-hidden="true"></i></button></div>
                 </div>
                 <div class="ark-reader-settings">
-                <label>Leitura<select v-model="readingMode" @change="changeReadingMode"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
+                <label>Leitura<select v-model="readingMode" @change="saveReaderPreferences"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
                 <label>Largura<select v-model="readerWidth" @change="saveReaderPreferences"><option value="680">Compacta</option><option value="900">Confortável</option><option value="1100">Ampla</option><option value="full">Tela inteira</option></select></label>
-                <label v-if="readingMode === 'paged'">Direção<select v-model="readingDirection"><option value="ltr">Esquerda → direita</option><option value="rtl">Direita → esquerda</option></select></label>
+                <label v-if="readingMode === 'paged'">Direção<select v-model="readingDirection" @change="saveReaderPreferences"><option value="ltr">Esquerda → direita</option><option value="rtl">Direita → esquerda</option></select></label>
+                <label>Brilho<input v-model.number="readerBrightness" @change="saveReaderPreferences" type="range" min="50" max="100" aria-label="Brilho das páginas"></label><label>Espaçamento<select v-model.number="readerSpacing" @change="saveReaderPreferences"><option :value="0">Sem espaço</option><option :value="8">Pequeno</option><option :value="16">Médio</option><option :value="24">Grande</option></select></label>
                 <button v-if="activeChapter.source === 'remote'" @click="translateReaderPage" :disabled="pageTranslationBusy || readerBusy" class="ark-btn-secondary"><i class="fa-solid fa-language" aria-hidden="true"></i>{{ pageTranslationBusy ? 'Traduzindo…' : 'Traduzir página ' + (readerPage + 1) }}</button>
                 <a v-if="activeChapter.source === 'mangadex'" :href="'https://mangadex.org/chapter/' + activeChapter.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">MangaDex ↗</a>
                 <span class="ark-sync-state" role="status">{{ activeChapter.source === 'mangadex' ? (dexProgressSync === 'saved' ? 'Progresso salvo na conta' : dexProgressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente') : activeChapter.source === 'local' ? 'Leitura de cópia local' : progressSync === 'saved' ? 'Progresso salvo na conta' : progressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente' }}</span>
@@ -398,7 +405,7 @@
             <div class="ark-reader-content">
             <button v-if="readerDrawerOpen" class="ark-reader-drawer-scrim" @click="readerDrawerOpen = false" aria-label="Fechar lista de capítulos"></button>
             <aside v-if="readerDrawerOpen" id="reader-chapter-drawer" class="ark-reader-drawer" aria-label="Lista de capítulos">
-                <div class="ark-reader-drawer-heading"><div><h2>Capítulos</h2><p>{{ readingChapters.length }} disponíveis<template v-if="activeChapter.language"> · {{ activeChapter.language === 'pt-br' ? 'Português (Brasil)' : activeChapter.language === 'pt' ? 'Português' : 'Inglês' }}</template></p></div><button @click="readerDrawerOpen = false" class="ark-btn-ghost" aria-label="Fechar lista de capítulos"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+                <div class="ark-reader-drawer-heading"><div><h2>Capítulos</h2><p>{{ readingChapters.length }} disponíveis<template v-if="activeChapter.language"> · {{ languageLabel(activeChapter.language) }}</template></p></div><button @click="readerDrawerOpen = false" class="ark-btn-ghost" aria-label="Fechar lista de capítulos"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
                 <label class="ark-reader-chapter-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="readerChapterSearch" @input="readerChapterLimit = 80" placeholder="Número, título ou grupo" aria-label="Buscar capítulo"></label>
                 <div v-if="activeChapter.source === 'mangadex'" class="ark-reader-feed-status"><span v-if="dexLoadingAll" role="status">Buscando todos · {{ dexChapters.length }} encontrados…</span><button v-if="dexLoadingAll" @click="cancelMangaDex" class="ark-btn-ghost">Parar busca</button><button v-else-if="dexHasMore" @click="loadDexChapters(true, true)" class="ark-btn-ghost">Buscar capítulos restantes</button><button v-else @click="loadDexChapters()" :disabled="dexLoading" class="ark-btn-ghost"><i class="fa-solid fa-rotate" aria-hidden="true"></i>Atualizar lista completa</button><p v-if="dexError" class="ark-error" role="alert">{{ dexError }}</p><p v-if="dexLimited" class="ark-note">A fonte limitou os resultados.</p></div>
                 <nav class="ark-reader-chapter-list" aria-label="Escolher capítulo"><button v-for="chapter in visibleReaderChapters" :key="chapter.id" @click="chooseReaderChapter(chapter)" :disabled="readerBusy" :aria-current="chapter.id === activeChapter.id ? 'true' : undefined" :class="{ 'is-current': chapter.id === activeChapter.id }"><span><strong>Capítulo {{ chapter.number }}</strong><small>{{ chapter.title || chapter.group || (chapter.pageCount + ' páginas') }}</small><small v-if="chapter.title && chapter.group">{{ chapter.group }}</small></span><i v-if="chapter.id === activeChapter.id" class="fa-solid fa-book-open" aria-hidden="true"></i><i v-else class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></nav>
@@ -408,7 +415,7 @@
             <div ref="readerScroll" :class="['ark-pages', { paged: readingMode === 'paged' }]" :key="activeChapter.id + readingMode">
                 <template v-if="readingMode === 'vertical'">
                     <div v-for="(url, i) in pageURLs" :key="url" :data-page="i" :style="{ minHeight: '100px', aspectRatio: activeChapter.dimensions?.[i] ? activeChapter.dimensions[i].width + ' / ' + activeChapter.dimensions[i].height : undefined, maxWidth: readerImageWidth, margin: '0 auto' }">
-                        <img :src="url" loading="lazy" :data-chapter="activeChapter.id" @load="readerImageLoaded($event, i)" :alt="'Página ' + (i + 1)" @error="readerError = 'Não foi possível exibir uma página. Verifique o arquivo enviado.'">
+                        <img :src="url" loading="lazy" decoding="async" :data-chapter="activeChapter.id" @load="readerImageLoaded($event, i)" :alt="'Página ' + (i + 1)" @error="readerError = 'Não foi possível exibir uma página. Verifique o arquivo enviado.'">
                     </div>
                 </template>
                 <img v-else :src="pageURLs[readerPage]" :data-chapter="activeChapter.id" @load="readerImageLoaded($event, readerPage)" :alt="'Página ' + (readerPage + 1)" @error="readerError = 'Não foi possível exibir esta página.'">
@@ -445,7 +452,7 @@
                     <p v-if="metadataSearched && !searchResults.length" class="ark-note" role="status">Nenhuma obra encontrada. Tente outro título ou preencha os dados abaixo.</p>
                     <div v-if="searchResults.length" class="ark-metadata-results" role="group" aria-label="Resultados da busca">
                         <button v-for="res in searchResults" :key="res.result_key || res.mal_id || res.title" type="button" @click="selectResult(res)" class="ark-metadata-result">
-                            <img v-if="metadataCover(res)" :src="metadataCover(res)" alt="" loading="lazy">
+                            <img v-if="metadataCover(res)" :src="metadataCover(res)" alt="" loading="lazy" decoding="async">
                             <span><strong>{{ res.title }}</strong><small>{{ res.type || 'Mangá' }} · {{ res.chapters || '?' }} capítulos · {{ res.provider }}</small></span>
                             <i class="fa-solid fa-plus" aria-hidden="true"></i>
                         </button>
@@ -454,6 +461,7 @@
                     <label class="ark-field-label">URL da capa<input v-model="newItem.poster" type="url" placeholder="https://…" class="ark-field"></label>
                     <img v-if="newItem.poster" :src="newItem.poster" class="ark-cover-preview" alt="Prévia da capa">
                     <label class="ark-field-label">Sinopse<textarea v-model="newItem.synopsis" @input="cancelSynopsisTranslation" rows="5" maxlength="50000" placeholder="A sinopse em português será preenchida ao selecionar uma obra. Você também pode escrevê-la aqui." class="ark-field"></textarea></label>
+                    <label class="ark-field-label">Autor / arte<input v-model="newItem.author" maxlength="500" class="ark-field"></label><label class="ark-field-label">Gêneros (separados por vírgula)<input :value="(newItem.genres || []).join(', ')" @change="newItem.genres = $event.target.value.split(',').map(v=>v.trim()).filter(Boolean)" class="ark-field"></label><label class="ark-field-label">Idioma de leitura preferido<select v-model="newItem.reading_language" class="ark-field"><option v-for="language in languageOptions" :key="language.code" :value="language.code">{{ language.label }}</option></select></label>
                     <p v-if="translationStatus" class="ark-note" role="status">{{ translationStatus }}</p>
                     <p v-if="translationError" class="ark-error" role="alert">{{ translationError }}</p>
                     <button v-if="newItem.synopsis" type="button" @click="translateSynopsis" :disabled="synopsisTranslating" class="ark-btn ark-btn-secondary w-full">{{ synopsisTranslating ? 'Traduzindo…' : 'Traduzir sinopse para português' }}</button>
@@ -507,7 +515,7 @@
         const { createApp } = Vue
 
         createApp({
-            mixins: [window.readerMixin, window.readerControlsMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin, window.continueReadingMixin, window.pageTranslationMixin],
+            mixins: [window.readerMixin, window.readerControlsMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin, window.continueReadingMixin, window.pageTranslationMixin, window.personalLibraryMixin],
             data() {
                 return {
                     userSession: null,
@@ -519,7 +527,7 @@
                     showModal: false, showLevelUp: false, isShaking: false,
                     currentFilter: 'Todos', catalogSort: 'recent', catalogView: 'grid', portalMenuOpen: false, featuredWorkId: null, localSearch: '', adminSearch: '', catalogSaving: false,
                     ambientRunes: Array.from({ length: 36 }, (_, i) => ({ glyph: ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᛟ','ᛗ','ᛉ'][i % 9], style: { left: (3 + (i % 6) * 16 + ((i * 7) % 9)) + '%', top: (3 + Math.floor(i / 6) * 16 + ((i * 11) % 9)) + '%', '--rune-size': (24 + i % 4 * 7) + 'px', '--rune-duration': (22 + i % 6 * 4) + 's', '--rune-pulse': (3.8 + i % 5 * .55) + 's', '--rune-delay': (-i * 3) + 's', '--rune-drift': (i % 2 ? -18 : 18) + 'px' } })),
-                    newItem: { title: '', type: 'Mangá', poster: '', synopsis: '', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
+                    newItem: { title: '', type: 'Mangá', poster: '', synopsis: '', author: '', genres: [], reading_language: 'pt-br', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
                     catalog: [], catalogError: '',
                     xp: 0,
                     dailyMissions: [],
@@ -545,7 +553,8 @@
                 },
                 filteredCatalog() {
                     let list = this.catalog;
-                    if (this.currentFilter !== 'Todos') list = list.filter(i => i.status === this.currentFilter);
+                    if (this.currentFilter === 'favoritos') list = list.filter(i => this.personalLibrary[i.id]?.favorite);
+                    else if (this.currentFilter !== 'Todos') list = list.filter(i => this.personalLibrary[i.id]?.status === this.currentFilter);
                     if (this.localSearch) list = list.filter(i => i.title.toLowerCase().includes(this.localSearch.toLowerCase()));
                     return this.catalogSort === 'title' ? [...list].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')) : list;
                 }
@@ -563,7 +572,7 @@
                     this.isEditing = true;
                     this.editingId = item.id;
                     this.cancelMetadataSearch(); this.metadataSelected = false;
-                    this.newItem = { synopsis: '', mal_id: null, ...item };
+                    this.newItem = { synopsis: '', author: '', genres: [], reading_language: 'pt-br', mal_id: null, ...item };
                     this.showModal = true;
                 },
 
@@ -595,8 +604,11 @@
                     if (this.newItem.poster && !window.ArkMetadata.imageURL(this.newItem.poster)) return alert('Informe uma URL HTTPS válida para a capa.');
                     this.cancelMetadataSearch(); this.catalogSaving = true; this.catalogSaveError = ''; this.catalogSchemaMissing = false;
                     const userId = this.userSession.user.id;
-                    const payload = Object.fromEntries(['title', 'type', 'poster', 'synopsis', 'mal_id', 'currentcount', 'totalcount', 'rating', 'status'].map(key => [key, this.newItem[key]]));
+                    const payload = Object.fromEntries(['title', 'type', 'poster', 'synopsis', 'author', 'genres', 'reading_language', 'mal_id', 'currentcount', 'totalcount', 'rating', 'status'].map(key => [key, this.newItem[key]]));
                     payload.title = payload.title.trim(); payload.synopsis = (payload.synopsis || '').slice(0, 50000);
+                    payload.author = String(payload.author || '').slice(0,500);
+                    payload.genres = Array.isArray(payload.genres) ? payload.genres.map(v=>String(v).trim().slice(0,80)).filter(Boolean).slice(0,20) : [];
+                    payload.reading_language ||= 'pt-br';
                     payload.mal_id = Number.isInteger(payload.mal_id) && payload.mal_id > 0 ? payload.mal_id : null;
                     try {
                         if (this.isEditing) {
@@ -651,12 +663,14 @@
                 async fetchFromSupabase() {
                     this.catalogError = '';
                     try {
-                        const { data, error } = await _supabase.from('itens_catalogo').select('*').order('created_at', { ascending: false });
-                        if (error) {
-                            this.catalogError = error.code === 'PGRST205' ? 'A biblioteca ainda está sendo configurada.' : 'Não foi possível carregar a biblioteca. Tente novamente.';
-                            return;
+                        const rows = [];
+                        for (let offset=0;;offset+=500) {
+                            const { data, error } = await _supabase.from('itens_catalogo').select('*').order('created_at', { ascending: false }).order('id').range(offset,offset+499);
+                            if(error) throw error;
+                            rows.push(...data);
+                            this.catalog = [...rows];
+                            if(data.length<500) break;
                         }
-                        if (data) this.catalog = data;
                     } catch (_) { this.catalogError = 'Não foi possível conectar à biblioteca. Verifique sua conexão e tente novamente.'; }
                 },
 
@@ -665,7 +679,7 @@
                     if (this.catalogSaving) return;
                     this.cancelMetadataSearch(); this.metadataSelected = false;
                     this.showModal = false; this.isEditing = false; this.editingId = null;
-                    this.newItem = { title: '', type: 'Mangá', poster: '', synopsis: '', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' };
+                    this.newItem = { title: '', type: 'Mangá', poster: '', synopsis: '', author: '', genres: [], reading_language: 'pt-br', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' };
                 },
                 initMissions() {
                     this.dailyMissions = [

@@ -44,6 +44,7 @@ window.authMixin = {
             this.userSession = session;
             this.authReady = true;
             if (previousId !== session?.user?.id) {
+                this.resetPersonalAccount?.();
                 this.resetMangaDex?.(null);
                 this._workRequest = (this._workRequest || 0) + 1;
                 this._chapterRequest = (this._chapterRequest || 0) + 1;
@@ -65,6 +66,7 @@ window.authMixin = {
         async submitAuth() {
             if (this.authBusy) return;
             this.authError = ''; this.authMessage = '';
+            if (['forgot','reset'].includes(this.authView)) return this.submitPasswordRecovery();
             const email = this.authEmail.trim();
             if (!email || !this.authPassword) { this.authError = 'Preencha e-mail e senha.'; return; }
             if (this.authView === 'signup' && (this.authPassword.length < 8 || this.authPassword !== this.authConfirm || !this.authName.trim())) {
@@ -88,6 +90,24 @@ window.authMixin = {
                     : 'Não foi possível concluir. Verifique os dados e tente novamente. Se persistir, confira a configuração de autenticação do Supabase.';
             } finally { this.authBusy = false; }
         },
+        async submitPasswordRecovery() {
+            const reset = this.authView === 'reset', userId = this.userSession?.user?.id;
+            if (reset && (!userId || this.authPassword.length < 8 || this.authPassword !== this.authConfirm)) {
+                this.authError = 'Informe e confirme uma senha com pelo menos 8 caracteres.'; return;
+            }
+            if (!reset && !this.authEmail.trim()) { this.authError = 'Informe seu e-mail.'; return; }
+            this.authBusy = true;
+            try {
+                const { error } = reset ? await _supabase.auth.updateUser({ password: this.authPassword })
+                    : await _supabase.auth.resetPasswordForEmail(this.authEmail.trim(), { redirectTo: this.authRedirectURL() });
+                if (error) throw error;
+                if (reset && userId !== this.userSession?.user?.id) return;
+                this.authPassword = ''; this.authConfirm = '';
+                this.authMessage = reset ? 'Senha atualizada. Você já pode continuar sua leitura.' : 'Se o endereço puder receber a recuperação, você receberá um link por e-mail.';
+                if (reset) this.authView = 'login';
+            } catch (_) { this.authError = 'Não foi possível concluir a recuperação. Tente novamente ou solicite um novo link.'; }
+            finally { this.authBusy = false; }
+        },
         async signOutReader() {
             if (this.authBusy || this.readerBusy) return;
             this.authBusy = true;
@@ -101,7 +121,10 @@ window.authMixin = {
         }
     },
     async mounted() {
-        const { data } = _supabase.auth.onAuthStateChange((_event, session) => this.applySession(session));
+        const { data } = _supabase.auth.onAuthStateChange((event, session) => {
+            this.applySession(session);
+            if (event === 'PASSWORD_RECOVERY') this.openAuth('reset');
+        });
         this._authSubscription = data.subscription;
         try {
             const { data: sessionData, error } = await _supabase.auth.getSession();

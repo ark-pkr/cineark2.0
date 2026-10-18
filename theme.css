@@ -413,3 +413,31 @@ body:has(.ark-overlay) { overflow:hidden; }
 
 /* Keep ambient foreground runes behind the splash identity. */
 .ark-rune-field.is-splash { z-index:9998; }
+.ark-card-favorite { position:absolute; right:8px; bottom:10px; z-index:3; display:grid; place-items:center; width:34px; height:34px; border:1px solid #b9576e88; border-radius:9px; background:#15080edb; color:#ff6b8b; }
+.ark-card-personal-status { font-size:10px; color:#ba99a9; margin:5px 0; }
+.ark-load-more { display:flex; margin:30px auto; }
+.ark-personal-actions { display:flex; flex-wrap:wrap; gap:14px; align-items:end; margin-bottom:22px; }
+.ark-personal-actions label { display:grid; gap:6px; font-size:11px; color:#cbb3c0; }
+.ark-personal-actions select { min-height:44px; padding:9px 12px; background:#180d15; border:1px solid #6b3044; border-radius:9px; color:#f7e6ef; }
+.ark-work-metadata { margin:20px 0; font-size:13px; line-height:1.8; color:#cbb3c0; }
+.ark-genre-tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.ark-genre-tags span,.ark-read-badge { border:1px solid #8c345455; background:#50172b44; border-radius:6px; padding:4px 9px; color:#f3a6bc; font-size:10px; }
+.ark-source-availability { display:grid; gap:9px; border:1px solid #67314566; background:#190f17; border-radius:12px; padding:18px; color:#cbb3c0; font-size:12px; margin:20px 0; }
+.ark-source-availability small { color:#ab8d9f; line-height:1.7; }
+.ark-work-chapter-tools { display:flex; flex-wrap:wrap; gap:14px; margin:22px 0; }
+.ark-work-chapter-tools label { display:grid; gap:7px; flex:1; min-width:180px; font-size:11px; color:#cbb3c0; }
+.ark-profile-panel { max-width:860px; margin:auto; padding:36px; }
+.ark-profile-panel h2 { font-size:30px; font-weight:700; margin:10px 0; }
+.ark-profile-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:28px 0; }
+.ark-profile-stats>div { padding:20px 14px; background:#28121e; border:1px solid #75304866; border-radius:12px; }
+.ark-profile-stats strong { display:block; font-size:28px; color:#ff879f; }
+.ark-profile-stats span { font-size:11px; color:#bfa4b4; }
+.ark-profile-panel .ark-section-heading { margin-top:36px; margin-bottom:12px; }
+.ark-history-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 0; border-bottom:1px solid #6d2c4344; }
+.ark-history-row strong { font-size:13px; display:block; }
+.ark-history-row span { display:block; color:#b397a7; font-size:11px; margin-top:6px; }
+.ark-reader .ark-pages img { filter:brightness(var(--reader-brightness,1)); }
+.ark-reader .ark-pages:not(.paged)>div[data-page] { margin-bottom:var(--reader-spacing,0px) !important; }
+.ark-reader-settings input[type=range] { width:90px; accent-color:#e53054; }
+.ark-shelf,.ark-catalog-grid>.movie-card { content-visibility:auto; contain-intrinsic-size:auto 350px; }
+@media(max-width:600px) { .ark-profile-panel { padding:24px 18px; } .ark-profile-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .ark-history-row { align-items:start; } .ark-history-row button { font-size:10px; padding:8px; } }

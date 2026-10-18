@@ -3,7 +3,11 @@ window.readerControlsMixin = {
         let saved = {};
         try { saved = JSON.parse(localStorage.getItem('ark-reader-preferences') || '{}') || {}; } catch (_) {}
         return { readerDrawerOpen: false, readerChapterSearch: '', readerChapterLimit: 80, readerFocus: false, readerNavigating: false,
-            readerWidth: ['680', '900', '1100', 'full'].includes(saved.width) ? saved.width : '900' };
+            readerWidth: ['680', '900', '1100', 'full'].includes(saved.width) ? saved.width : '900',
+            readerBrightness: Math.max(50,Math.min(100,Number(saved.brightness)||100)),
+            readerSpacing: [0,8,16,24].includes(saved.spacing) ? saved.spacing : 0,
+            readingMode: ['vertical','paged'].includes(saved.mode) ? saved.mode : 'vertical',
+            readingDirection: saved.direction === 'rtl' ? 'rtl' : 'ltr' };
     },
     computed: {
         readerImageWidth() { return this.readerWidth === 'full' ? '100%' : this.readerWidth + 'px'; },
@@ -51,7 +55,8 @@ window.readerControlsMixin = {
         },
         resetReaderControls() { this.readerDrawerOpen = false; this.readerFocus = false; this.readerChapterSearch = ''; },
         saveReaderPreferences() {
-            try { localStorage.setItem('ark-reader-preferences', JSON.stringify({ width: this.readerWidth })); } catch (_) {}
+            try { localStorage.setItem('ark-reader-preferences', JSON.stringify({ width: this.readerWidth, brightness:this.readerBrightness,
+                spacing:this.readerSpacing, mode:this.readingMode, direction:this.readingDirection })); } catch (_) {}
             this.changeReadingMode();
         }
     }

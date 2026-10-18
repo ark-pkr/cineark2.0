@@ -4,7 +4,7 @@ window.ArkMetadata = (() => {
     const imageURL = value => {
         try { const url = new URL(value); return url.protocol === 'https:' ? url.href : ''; } catch (_) { return ''; }
     };
-    const mediaFields = 'id idMal title { english romaji native } description(asHtml: false) coverImage { extraLarge large } countryOfOrigin chapters';
+    const mediaFields = 'id idMal title { english romaji native } description(asHtml: false) coverImage { extraLarge large } countryOfOrigin chapters genres staff(perPage: 8) { edges { role node { name { full } } } }';
     function plainText(value) {
         return String(value || '').replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/p\s*>/gi, '\n\n')
             .replace(/<[^>]*>/g, '').replace(/&(amp|lt|gt|quot|apos|nbsp);/gi, (_, name) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' })[name.toLowerCase()])
@@ -26,7 +26,8 @@ window.ArkMetadata = (() => {
     }
     function fromAniList(row) {
         return { title: row.title?.english || row.title?.romaji || row.title?.native || '', mal_id: row.idMal,
-            synopsis: plainText(row.description), chapters: row.chapters,
+            synopsis: plainText(row.description), chapters: row.chapters, genres: (row.genres || []).map(name=>({name})),
+            authors: (row.staff?.edges || []).filter(edge=>/story|art|original/i.test(edge.role)).map(edge=>({name:edge.node?.name?.full})),
             type: row.countryOfOrigin === 'KR' ? 'Manhwa' : row.countryOfOrigin === 'CN' || row.countryOfOrigin === 'TW' ? 'Manhua' : 'Manga',
             images: { jpg: { large_image_url: row.coverImage?.extraLarge || row.coverImage?.large } },
             provider: 'AniList', result_key: 'anilist:' + row.id };
@@ -83,6 +84,8 @@ window.ArkMetadata = (() => {
             const poster = imageURL(result.images?.webp?.large_image_url) || imageURL(result.images?.jpg?.large_image_url)
                 || imageURL(result.images?.jpg?.image_url);
             return { title: result.title || '', poster, synopsis: typeof result.synopsis === 'string' ? result.synopsis : '',
+                author: [...new Set((result.authors||[]).map(row=>row.name).filter(name=>typeof name==='string'))].join(', ').slice(0,500),
+                genres: (result.genres||[]).map(row=>row.name).filter(name=>typeof name==='string').slice(0,20).map(name=>({Action:'Ação',Adventure:'Aventura',Fantasy:'Fantasia',Drama:'Drama',Supernatural:'Sobrenatural',Romance:'Romance',Comedy:'Comédia',Horror:'Terror',Mystery:'Mistério',Sports:'Esportes',Thriller:'Suspense','Sci-Fi':'Ficção científica','Slice of Life':'Cotidiano'}[name]||name)),
                 mal_id: Number.isInteger(result.mal_id) && result.mal_id > 0 ? result.mal_id : null,
                 totalcount: Number.isInteger(result.chapters) && result.chapters > 0 ? result.chapters : 0,
                 type: result.type === 'Manhwa' ? 'Manhwa' : result.type === 'Manhua' ? 'Manhua' : 'Mangá' };

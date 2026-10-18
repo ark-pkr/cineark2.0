@@ -95,7 +95,7 @@ export function createMangaDexProxy({ fetcher = fetch, allowedOrigins = LOCAL_OR
             }
             if (op === 'feed') {
                 const mangaId = id(value), language = url.searchParams.get('language') || 'pt-br';
-                if (!['pt-br', 'pt', 'en'].includes(language)) throw new ProxyError('Idioma não suportado.', 400);
+                if (!['pt-br', 'pt', 'en', 'es', 'es-la', 'fr', 'de', 'it', 'ja', 'ko', 'zh', 'zh-hk'].includes(language)) throw new ProxyError('Idioma não suportado.', 400);
                 const offset = integer(url.searchParams.get('offset'), 9900);
                 const params = new URLSearchParams({ limit: '100', offset: String(offset), 'translatedLanguage[]': language,
                     'order[volume]': 'asc', 'order[chapter]': 'asc', 'includes[]': 'scanlation_group', includeEmptyPages: '0', includeExternalUrl: '0', includeFutureUpdates: '0' });

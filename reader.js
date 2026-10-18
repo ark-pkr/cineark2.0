@@ -228,6 +228,7 @@ window.readerMixin = {
                 remote, updatedAt: new Date().toISOString(), syncPending: remote || external,
                 ...(external ? { source: 'mangadex', mangaId: this.activeChapter.mangaId, number: this.activeChapter.number, language: this.activeChapter.language } : {}) };
             this.persistReadingProgress();
+            this.markChapterRead?.();
             if (external && this.userSession) {
                 this.dexProgressSync = 'pending'; clearTimeout(this._dexProgressTimer);
                 this._dexProgressTimer = setTimeout(() => this.flushDexProgress(), 700);

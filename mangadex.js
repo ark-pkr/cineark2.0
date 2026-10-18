@@ -44,14 +44,19 @@ window.ArkMangaDex = class {
 
 window.mangadexMixin = {
     data() { return { chapterSource: 'library', dexQuery: '', dexResults: [], dexChapters: [], dexSelected: null,
-        dexLoading: false, dexError: '', dexSearched: false, dexLanguage: 'pt-br', dexQuality: 'economy', dexHasMore: false, dexNextOffset: 0 }; },
+        dexLoading: false, dexLoadingAll: false, dexError: '', dexSearched: false, dexLanguage: 'pt-br', dexQuality: 'economy', dexHasMore: false, dexNextOffset: 0,
+        dexTotal: 0, dexLimited: false, dexVisibleLimit: 100 }; },
+    computed: {
+        dexVisibleChapters() { return this.dexChapters.slice(0, this.dexVisibleLimit); }
+    },
     methods: {
         mangaDexAPI() { if (!this._mangaDexAPI) this._mangaDexAPI = new window.ArkMangaDex(); return this._mangaDexAPI; },
-        cancelMangaDex() { this._dexController?.abort(); this._dexRequest = (this._dexRequest || 0) + 1; this.dexLoading = false; },
+        cancelMangaDex() { this._dexController?.abort(); this._dexRequest = (this._dexRequest || 0) + 1; this.dexLoading = false; this.dexLoadingAll = false; },
         resetMangaDex(item) {
             this.cancelMangaDex(); this.chapterSource = 'library'; this.dexQuery = item?.title || '';
             this.dexResults = []; this.dexChapters = []; this.dexSelected = null; this.dexError = ''; this.dexSearched = false;
             this.dexLanguage = 'pt-br'; this.dexHasMore = false; this.dexNextOffset = 0;
+            this.dexTotal = 0; this.dexLimited = false; this.dexVisibleLimit = 100;
         },
         async queryMangaDex(loader, apply) {
             if (!this.userSession || !this.readingWork) return null;
@@ -68,7 +73,7 @@ window.mangadexMixin = {
             const userId = this.userSession?.user?.id, workId = this.readingWork.id;
             await this.loadDexProgress?.();
             if (userId !== this.userSession?.user?.id || workId !== this.readingWork?.id || this.chapterSource !== source) return;
-            if (this.dexSelected && this.dexChapters.length) return;
+            if (this.dexSelected && this.dexChapters.length) return this.dexHasMore ? this.loadDexChapters(true, true) : undefined;
             if (!this.dexSelected) {
                 try {
                     const links = JSON.parse(localStorage.getItem('ark-mangadex-links:' + this.userSession.user.id) || '{}');
@@ -104,17 +109,38 @@ window.mangadexMixin = {
                 localStorage.setItem(key, JSON.stringify(links));
             } catch (_) {}
         },
-        async loadDexChapters(append = false) {
-            if (!this.dexSelected) return;
-            const id = this.dexSelected.id, language = this.dexLanguage, offset = append ? this.dexNextOffset : 0;
-            if (!append) { this.dexChapters = []; this.dexHasMore = false; this.dexNextOffset = 0; }
+        loadDexChapters(append = false, all = !append) {
+            if (!this.dexSelected || !this.userSession || !this.readingWork) return Promise.resolve();
+            this.cancelMangaDex();
+            const id = this.dexSelected.id, language = this.dexLanguage, workId = this.readingWork.id, userId = this.userSession.user.id;
+            const request = this._dexRequest, controller = this._dexController = new AbortController();
+            const current = () => !controller.signal.aborted && request === this._dexRequest && userId === this.userSession?.user?.id &&
+                workId === this.readingWork?.id && id === this.dexSelected?.id && language === this.dexLanguage;
+            if (!append) { this.dexChapters = []; this.dexHasMore = false; this.dexNextOffset = 0; this.dexTotal = 0; this.dexLimited = false; this.dexVisibleLimit = 100; }
+            this.dexLoading = true; this.dexLoadingAll = all; this.dexError = '';
             this.rememberDexManga();
-            return this.queryMangaDex(signal => this.mangaDexAPI().feed(id, language, offset, signal), result => {
-                if (!Array.isArray(result.data)) throw new Error('Lista de capítulos inválida.');
-                const previous = append ? this.dexChapters : [];
-                this.dexChapters = [...new Map([...previous, ...result.data].map(chapter => [chapter.id, chapter])).values()];
-                this.dexHasMore = !!result.hasMore; this.dexNextOffset = result.nextOffset;
+            const task = Promise.resolve().then(async () => {
+                try {
+                    do {
+                        const offset = this.dexNextOffset;
+                        const result = await this.mangaDexAPI().feed(id, language, offset, controller.signal);
+                        if (!current()) return;
+                        if (!Array.isArray(result.data) || !Number.isInteger(result.nextOffset) || result.nextOffset < offset ||
+                            result.nextOffset > 10000 || result.hasMore && result.nextOffset <= offset) throw new Error('A fonte retornou uma paginação inválida. Tente atualizar a lista.');
+                        this.dexChapters = [...new Map([...this.dexChapters, ...result.data].map(chapter => [chapter.id, chapter])).values()];
+                        this.dexHasMore = !!result.hasMore; this.dexNextOffset = result.nextOffset;
+                        this.dexTotal = Number.isFinite(result.total) ? result.total : this.dexChapters.length;
+                        this.dexLimited = !!result.limited;
+                    } while (all && this.dexHasMore && current());
+                } catch (error) {
+                    if (current()) this.dexError = error.message || 'Não foi possível completar a lista. Os capítulos encontrados foram mantidos.';
+                } finally {
+                    if (request === this._dexRequest) { this.dexLoading = false; this.dexLoadingAll = false; }
+                    if (this._dexFeedPromise === task) this._dexFeedPromise = null;
+                }
             });
+            this._dexFeedPromise = task;
+            return task;
         },
         async continueMangaDex() {
             const userId = this.userSession?.user?.id, workId = this.readingWork?.id;
@@ -129,12 +155,23 @@ window.mangadexMixin = {
             if (chapter) await this.openChapter(chapter, saved?.chapterId === chapter.id ? saved.page : 0);
         },
         async navigateReaderChapter(direction) {
-            if (this.readerBusy || this.dexLoading) return;
-            if (direction === 1 && this.activeChapter?.source === 'mangadex' && this.chapterIndex === this.readingChapters.length - 1 && this.dexHasMore)
-                await this.loadDexChapters(true);
-            if (this.activeChapter?.source === 'mangadex' && this.dexError) { this.readerError = this.dexError; return; }
-            const chapter = this.readingChapters[this.chapterIndex + direction];
+            if (this.readerBusy || this.readerNavigating || ![-1, 1].includes(direction)) return;
+            const activeId = this.activeChapter?.id, userId = this.userSession?.user?.id;
+            this.readerNavigating = true;
+            try {
+            let sequence = this.readerChapterSequence || this.readingChapters;
+            let index = sequence.findIndex(chapter => chapter.id === activeId);
+            if (this.activeChapter?.source === 'mangadex' && (index < 0 || direction === 1 && index === sequence.length - 1) && this.dexHasMore) {
+                if (this._dexFeedPromise) await this._dexFeedPromise;
+                else await this.loadDexChapters(true, true);
+            }
+            if (activeId !== this.activeChapter?.id || userId !== this.userSession?.user?.id) return;
+            sequence = this.readerChapterSequence || this.readingChapters;
+            index = sequence.findIndex(chapter => chapter.id === activeId);
+            const chapter = index >= 0 ? sequence[index + direction] : null;
+            if (!chapter && this.dexError) this.readerError = this.dexError;
             if (chapter) await this.openChapter(chapter);
+            } finally { this.readerNavigating = false; }
         },
         readerImageLoaded(event, index) {
             if (this.activeChapter?.source !== 'mangadex') return;

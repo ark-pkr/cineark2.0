@@ -28,7 +28,7 @@ window.readerMixin = {
     },
     computed: {
         readingChapters() { return this.activeChapter?.source === 'mangadex' || !this.activeChapter && this.chapterSource === 'mangadex' ? this.dexChapters : this.chapters.filter(c => c.published); },
-        chapterIndex() { return this.readingChapters.findIndex(c => c.id === this.activeChapter?.id); }
+        chapterIndex() { return (this.readerChapterSequence || this.readingChapters).findIndex(c => c.id === this.activeChapter?.id); }
     },
     methods: {
         cloudAPI() {
@@ -302,7 +302,15 @@ window.readerMixin = {
         progressStorageKey() { return this.userSession?.user?.id ? 'ark-reading:' + this.userSession.user.id : 'ark-reading'; },
         readerKey(event) {
             if (!this.activeChapter || ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) return;
-            if (event.key === 'Escape') this.closeReader();
+            if (event.key === 'Escape') {
+                if (this.readerFocus) { this.readerFocus = false; return; }
+                if (this.readerDrawerOpen) { this.readerDrawerOpen = false; return; }
+                this.closeReader();
+            }
+            if (this.jumpReaderPage && ['Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) {
+                event.preventDefault();
+                this.jumpReaderPage(event.key === 'Home' ? 0 : event.key === 'End' ? this.pageURLs.length - 1 : this.readerPage + (event.key === 'PageDown' ? 1 : -1));
+            }
             if (this.readingMode === 'paged' && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
                 event.preventDefault();
                 this.turnPage((event.key === 'ArrowRight' ? 1 : -1) * (this.readingDirection === 'rtl' ? -1 : 1));
@@ -319,6 +327,7 @@ window.readerMixin = {
             this.chapterObserver?.disconnect(); this.pageURLs.filter(url => url.startsWith('blob:')).forEach(url => URL.revokeObjectURL(url)); this.pageURLs = [];
         },
         closeReader() {
+            this.resetReaderControls?.();
             this.cancelPageTranslation?.();
             this._chapterRequest = (this._chapterRequest || 0) + 1;
             this.saveReadingProgress(); this.flushReadingProgress(); this.releasePages(); this.activeChapter = null;

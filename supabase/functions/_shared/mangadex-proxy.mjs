@@ -103,8 +103,10 @@ export function createMangaDexProxy({ fetcher = fetch, allowedOrigins = LOCAL_OR
                 const data = result.data.filter(c => c.attributes?.pages > 0 && !c.attributes.externalUrl && !c.attributes.isUnavailable).map(c => ({
                     id: c.id, source: 'mangadex', mangaId, number: c.attributes.chapter || 'Especial', title: c.attributes.title || '',
                     language: c.attributes.translatedLanguage, pageCount: c.attributes.pages, published: true,
-                    group: c.relationships?.find(r => r.type === 'scanlation_group')?.attributes?.name || '' }));
-                return json({ data, offset, nextOffset: offset + result.data.length, total: result.total, hasMore: offset + result.data.length < Math.min(result.total, 10000) && result.data.length > 0 });
+                    volume: c.attributes.volume || '', group: c.relationships?.find(r => r.type === 'scanlation_group')?.attributes?.name || '' }));
+                return json({ data, offset, nextOffset: offset + result.data.length, total: result.total,
+                    limited: result.total > 10000 && offset + result.data.length >= 10000,
+                    hasMore: offset + result.data.length < Math.min(result.total, 10000) && result.data.length > 0 });
             }
             if (op === 'pages') {
                 const chapterId = id(value), result = await manifest(chapterId);

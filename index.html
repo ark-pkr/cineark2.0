@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="theme.css">
     <script src="cloud-reader.js"></script>
     <script src="reader.js"></script>
+    <script src="reader-controls.js"></script>
     <script src="external-progress.js"></script>
     <script src="continue-reading.js"></script>
     <script src="page-translation.js"></script>
@@ -127,7 +128,7 @@
     <div id="blood-container" class="blood-screen"></div>
 
     <div id="app">
-        <div :class="['ark-rune-field', { 'is-reading': activeChapter }]" aria-hidden="true">
+        <div :class="['ark-rune-field', { 'is-reading': activeChapter, 'is-focused': activeChapter && readerFocus }]" aria-hidden="true">
             <span v-for="(rune, i) in ambientRunes" :key="'ambient-' + i" :style="rune.style">{{ rune.glyph }}</span>
         </div>
         <div :class="['blood-curtain', isExiting ? 'active' : '']"></div>
@@ -313,7 +314,8 @@
                         <label>Idioma<select v-model="dexLanguage" @change="loadDexChapters()" :disabled="readerBusy"><option value="pt-br">Português (Brasil)</option><option value="pt">Português (Portugal)</option><option value="en">Inglês</option></select></label>
                         <label>Imagens<select v-model="dexQuality" :disabled="readerBusy"><option value="economy">Econômicas</option><option value="original">Qualidade original</option></select></label>
                     </div>
-                    <p v-if="dexLoading" class="ark-note" role="status">Consultando MangaDex…</p>
+                    <div v-if="dexLoadingAll" class="ark-feed-progress" role="status"><div><strong>Buscando todos os capítulos</strong><span>{{ dexChapters.length }} encontrados</span></div><progress v-if="dexTotal" :value="dexNextOffset" :max="dexTotal"></progress><button @click="cancelMangaDex" class="ark-btn-ghost">Parar busca</button></div>
+                    <p v-else-if="dexLoading" class="ark-note" role="status">Consultando MangaDex…</p>
                     <p v-if="dexError" class="ark-error" role="alert">{{ dexError }}</p>
                     <div v-if="!dexSelected">
                         <p v-if="dexSearched && !dexResults.length && !dexLoading" class="ark-note">Nenhuma obra encontrada. Tente o título original ou outro nome.</p>
@@ -325,13 +327,15 @@
                     </div>
                     <template v-if="dexSelected">
                         <div class="ark-dex-selected"><strong>{{ dexSelected.title }}</strong><a :href="'https://mangadex.org/title/' + dexSelected.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">Abrir no MangaDex ↗</a></div>
-                        <button @click="loadDexChapters()" :disabled="dexLoading || readerBusy" class="ark-btn-ghost">Atualizar capítulos</button>
-                        <button v-if="dexChapters.length" @click="continueMangaDex" :disabled="dexLoading || readerBusy" class="ark-btn-primary">{{ readingProgress['mangadex:' + readingWork.id] ? 'Continuar no MangaDex' : 'Começar leitura' }}</button>
+                        <div class="ark-chapter-list-actions"><span>{{ dexChapters.length }} capítulos e versões disponíveis</span><button @click="loadDexChapters()" :disabled="dexLoading || readerBusy" class="ark-btn-ghost"><i class="fa-solid fa-rotate" aria-hidden="true"></i>Atualizar lista completa</button></div>
+                        <p v-if="dexLimited" class="ark-note">A fonte limitou os resultados desta consulta. A lista pode não incluir todas as versões.</p>
+                        <button v-if="dexChapters.length" @click="continueMangaDex" :disabled="readerBusy" class="ark-btn-primary">{{ readingProgress['mangadex:' + readingWork.id] ? 'Continuar no MangaDex' : 'Começar leitura' }}</button>
                         <div v-if="!dexLoading && !dexChapters.length && !dexError" class="ark-empty-state"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><h3>Esta história ainda não chegou neste idioma</h3><p>Experimente outro idioma acima ou confira a obra na fonte original.</p></div>
-                        <div v-for="chapter in dexChapters" :key="chapter.id" class="ark-chapter">
-                            <button @click="openChapter(chapter)" :disabled="readerBusy || dexLoading" class="ark-chapter-open">Cap. {{ chapter.number }} {{ chapter.title ? '— ' + chapter.title : '' }} · {{ chapter.pageCount }} páginas <small v-if="chapter.group">· {{ chapter.group }}</small></button>
+                        <div v-for="chapter in dexVisibleChapters" :key="chapter.id" class="ark-chapter">
+                            <button @click="openChapter(chapter)" :disabled="readerBusy" class="ark-chapter-open">Cap. {{ chapter.number }} {{ chapter.title ? '— ' + chapter.title : '' }} · {{ chapter.pageCount }} páginas <small v-if="chapter.group">· {{ chapter.group }}</small></button>
                         </div>
-                        <button v-if="dexHasMore" @click="loadDexChapters(true)" :disabled="dexLoading || readerBusy">Carregar mais capítulos</button>
+                        <button v-if="dexVisibleLimit < dexChapters.length" @click="dexVisibleLimit += 100">Mostrar mais {{ Math.min(100, dexChapters.length - dexVisibleLimit) }} capítulos</button>
+                        <button v-if="dexHasMore && !dexLoading" @click="loadDexChapters(true, true)" :disabled="readerBusy">Continuar busca de todos os capítulos</button>
                     </template>
                 </section>
                 <section v-show="chapterSource === 'library'">
@@ -367,22 +371,37 @@
                 </section>
             </div>
         </section>
-        <section v-if="activeChapter" ref="readerShell" class="ark-overlay ark-reader" role="dialog" aria-modal="true" aria-label="Leitor de capítulos">
+        <section v-if="activeChapter" ref="readerShell" :class="['ark-overlay', 'ark-reader', { 'is-focus': readerFocus }]" :style="{ '--reader-width': readerImageWidth }" role="dialog" aria-modal="true" aria-label="Leitor de capítulos">
+            <button v-if="readerFocus" @click="readerFocus = false" class="ark-reader-restore"><i class="fa-solid fa-eye" aria-hidden="true"></i>Mostrar controles</button>
             <header class="ark-toolbar ark-reader-header">
-                <button @click="closeReader" class="ark-btn-ghost"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Capítulos</button>
-                <strong>{{ readingWork.title }} - Cap. {{ activeChapter.number }}</strong>
-                <a v-if="activeChapter.source === 'mangadex'" :href="'https://mangadex.org/chapter/' + activeChapter.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">MangaDex ↗</a>
-                <label>Modo <select v-model="readingMode" @change="changeReadingMode"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
-                <label v-if="readingMode === 'paged'">Direção <select v-model="readingDirection"><option value="ltr">Esquerda para direita</option><option value="rtl">Direita para esquerda</option></select></label>
-                <button @click="readerFullscreen"><i class="fa-solid fa-expand" aria-hidden="true"></i>Tela cheia</button>
+                <div class="ark-reader-topline">
+                    <button @click="closeReader" class="ark-btn-ghost ark-reader-back" aria-label="Voltar aos detalhes da obra"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+                    <div class="ark-reader-heading"><strong>{{ readingWork.title }}</strong><span>Capítulo {{ activeChapter.number }}<template v-if="activeChapter.title"> · {{ activeChapter.title }}</template></span></div>
+                    <div class="ark-reader-header-actions"><button @click="toggleReaderDrawer" :aria-expanded="readerDrawerOpen" aria-controls="reader-chapter-drawer" :class="{ 'ark-btn-primary': readerDrawerOpen }"><i class="fa-solid fa-list" aria-hidden="true"></i><span>Capítulos</span></button><button @click="readerFocus = true; readerDrawerOpen = false" title="Ler sem distrações"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i><span>Foco</span></button><button @click="readerFullscreen" aria-label="Tela cheia"><i class="fa-solid fa-expand" aria-hidden="true"></i></button></div>
+                </div>
+                <div class="ark-reader-settings">
+                <label>Leitura<select v-model="readingMode" @change="changeReadingMode"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
+                <label>Largura<select v-model="readerWidth" @change="saveReaderPreferences"><option value="680">Compacta</option><option value="900">Confortável</option><option value="1100">Ampla</option><option value="full">Tela inteira</option></select></label>
+                <label v-if="readingMode === 'paged'">Direção<select v-model="readingDirection"><option value="ltr">Esquerda → direita</option><option value="rtl">Direita → esquerda</option></select></label>
                 <button v-if="activeChapter.source === 'remote'" @click="translateReaderPage" :disabled="pageTranslationBusy || readerBusy" class="ark-btn-secondary"><i class="fa-solid fa-language" aria-hidden="true"></i>{{ pageTranslationBusy ? 'Traduzindo…' : 'Traduzir página ' + (readerPage + 1) }}</button>
+                <a v-if="activeChapter.source === 'mangadex'" :href="'https://mangadex.org/chapter/' + activeChapter.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">MangaDex ↗</a>
                 <span class="ark-sync-state" role="status">{{ activeChapter.source === 'mangadex' ? (dexProgressSync === 'saved' ? 'Progresso salvo na conta' : dexProgressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente') : activeChapter.source === 'local' ? 'Leitura de cópia local' : progressSync === 'saved' ? 'Progresso salvo na conta' : progressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente' }}</span>
+                </div>
             </header>
             <div v-if="readerError" role="alert" class="ark-error">{{ readerError }} <button v-if="['remote', 'mangadex'].includes(activeChapter.source)" @click="readerError = ''; refreshSignedPages()">Recarregar páginas</button></div>
             <div class="ark-reader-content">
+            <button v-if="readerDrawerOpen" class="ark-reader-drawer-scrim" @click="readerDrawerOpen = false" aria-label="Fechar lista de capítulos"></button>
+            <aside v-if="readerDrawerOpen" id="reader-chapter-drawer" class="ark-reader-drawer" aria-label="Lista de capítulos">
+                <div class="ark-reader-drawer-heading"><div><h2>Capítulos</h2><p>{{ readingChapters.length }} disponíveis<template v-if="activeChapter.language"> · {{ activeChapter.language === 'pt-br' ? 'Português (Brasil)' : activeChapter.language === 'pt' ? 'Português' : 'Inglês' }}</template></p></div><button @click="readerDrawerOpen = false" class="ark-btn-ghost" aria-label="Fechar lista de capítulos"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+                <label class="ark-reader-chapter-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="readerChapterSearch" @input="readerChapterLimit = 80" placeholder="Número, título ou grupo" aria-label="Buscar capítulo"></label>
+                <div v-if="activeChapter.source === 'mangadex'" class="ark-reader-feed-status"><span v-if="dexLoadingAll" role="status">Buscando todos · {{ dexChapters.length }} encontrados…</span><button v-if="dexLoadingAll" @click="cancelMangaDex" class="ark-btn-ghost">Parar busca</button><button v-else-if="dexHasMore" @click="loadDexChapters(true, true)" class="ark-btn-ghost">Buscar capítulos restantes</button><button v-else @click="loadDexChapters()" :disabled="dexLoading" class="ark-btn-ghost"><i class="fa-solid fa-rotate" aria-hidden="true"></i>Atualizar lista completa</button><p v-if="dexError" class="ark-error" role="alert">{{ dexError }}</p><p v-if="dexLimited" class="ark-note">A fonte limitou os resultados.</p></div>
+                <nav class="ark-reader-chapter-list" aria-label="Escolher capítulo"><button v-for="chapter in visibleReaderChapters" :key="chapter.id" @click="chooseReaderChapter(chapter)" :disabled="readerBusy" :aria-current="chapter.id === activeChapter.id ? 'true' : undefined" :class="{ 'is-current': chapter.id === activeChapter.id }"><span><strong>Capítulo {{ chapter.number }}</strong><small>{{ chapter.title || chapter.group || (chapter.pageCount + ' páginas') }}</small><small v-if="chapter.title && chapter.group">{{ chapter.group }}</small></span><i v-if="chapter.id === activeChapter.id" class="fa-solid fa-book-open" aria-hidden="true"></i><i v-else class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></nav>
+                <p v-if="!filteredReaderChapters.length" class="ark-note">Nenhum capítulo encontrado.</p>
+                <button v-if="readerChapterLimit < filteredReaderChapters.length" @click="readerChapterLimit += 80" class="ark-btn-ghost">Mostrar mais capítulos</button>
+            </aside>
             <div ref="readerScroll" :class="['ark-pages', { paged: readingMode === 'paged' }]" :key="activeChapter.id + readingMode">
                 <template v-if="readingMode === 'vertical'">
-                    <div v-for="(url, i) in pageURLs" :key="url" :data-page="i" :style="{ minHeight: '100px', aspectRatio: activeChapter.dimensions?.[i] ? activeChapter.dimensions[i].width + ' / ' + activeChapter.dimensions[i].height : undefined, maxWidth: '900px', margin: '0 auto' }">
+                    <div v-for="(url, i) in pageURLs" :key="url" :data-page="i" :style="{ minHeight: '100px', aspectRatio: activeChapter.dimensions?.[i] ? activeChapter.dimensions[i].width + ' / ' + activeChapter.dimensions[i].height : undefined, maxWidth: readerImageWidth, margin: '0 auto' }">
                         <img :src="url" loading="lazy" :data-chapter="activeChapter.id" @load="readerImageLoaded($event, i)" :alt="'Página ' + (i + 1)" @error="readerError = 'Não foi possível exibir uma página. Verifique o arquivo enviado.'">
                     </div>
                 </template>
@@ -400,14 +419,11 @@
                 </template>
             </aside>
             </div>
-            <footer class="ark-toolbar ark-reader-footer">
-                <button :disabled="readerBusy || dexLoading || chapterIndex <= 0" @click="navigateReaderChapter(-1)">Cap. anterior</button>
-                <template v-if="readingMode === 'paged'">
-                    <button :disabled="readingDirection === 'rtl' ? readerPage >= pageURLs.length - 1 : readerPage === 0" @click="turnPage(readingDirection === 'rtl' ? 1 : -1)">{{ readingDirection === 'rtl' ? 'Próxima página' : 'Página anterior' }}</button>
-                    <button :disabled="readingDirection === 'rtl' ? readerPage === 0 : readerPage >= pageURLs.length - 1" @click="turnPage(readingDirection === 'rtl' ? -1 : 1)">{{ readingDirection === 'rtl' ? 'Página anterior' : 'Próxima página' }}</button>
-                </template>
-                <span aria-live="polite">Página {{ readerPage + 1 }} / {{ pageURLs.length }}</span>
-                <button :disabled="readerBusy || dexLoading || chapterIndex < 0 || (chapterIndex >= readingChapters.length - 1 && !(activeChapter.source === 'mangadex' && dexHasMore))" @click="navigateReaderChapter(1)" class="ark-btn-primary">Próximo cap.<i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+            <footer class="ark-reader-navigation">
+                <div class="ark-reader-progress-track" aria-hidden="true"><span :style="{ width: readerPercentage + '%' }"></span></div>
+                <button :disabled="readerBusy || readerNavigating || !readerCanPrevious" @click="navigateReaderChapter(-1)" class="ark-reader-prev"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span>Cap. anterior</span></button>
+                <div class="ark-reader-page-controls"><div :class="['ark-reader-page-navigation', { 'is-rtl': readingMode === 'paged' && readingDirection === 'rtl' }]"><button @click="jumpReaderPage(readerPage - 1)" :disabled="readerPage <= 0 || readerBusy" aria-label="Página anterior"><i :class="readingMode === 'paged' && readingDirection === 'rtl' ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i></button><label>Página <input type="number" :value="readerPage + 1" @change="jumpReaderPage(Number($event.target.value) - 1)" min="1" :max="pageURLs.length" aria-label="Ir para página"> <span>/ {{ pageURLs.length }}</span></label><button @click="jumpReaderPage(readerPage + 1)" :disabled="readerPage >= pageURLs.length - 1 || readerBusy" aria-label="Próxima página"><i :class="readingMode === 'paged' && readingDirection === 'rtl' ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right'" aria-hidden="true"></i></button></div><input type="range" min="0" :max="Math.max(0, pageURLs.length - 1)" :value="readerPage" @change="jumpReaderPage(Number($event.target.value))" :disabled="readerBusy || !pageURLs.length" aria-label="Avançar pela página do capítulo"></div>
+                <button :disabled="readerBusy || readerNavigating || !readerCanNext" @click="navigateReaderChapter(1)" class="ark-btn-primary ark-reader-next"><span>{{ readerNavigating ? 'Abrindo…' : 'Próximo cap.' }}</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
             </footer>
         </section>
 
@@ -485,7 +501,7 @@
         const { createApp } = Vue
 
         createApp({
-            mixins: [window.readerMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin, window.continueReadingMixin, window.pageTranslationMixin],
+            mixins: [window.readerMixin, window.readerControlsMixin, window.authMixin, window.metadataMixin, window.mangadexMixin, window.externalProgressMixin, window.continueReadingMixin, window.pageTranslationMixin],
             data() {
                 return {
                     userSession: null,

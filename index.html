@@ -157,9 +157,11 @@
             <div class="lvl-text">{{ rankTitle }}</div>
         </div>
 
-        <div class="max-w-7xl mx-auto px-6 py-10 relative z-10">
+        <div class="max-w-7xl mx-auto px-6 py-10 relative z-10 ark-portal">
             <header class="ark-site-header">
                 <div class="ark-topbar">
+                    <a class="ark-wordmark" href="#" aria-label="CINE ARK, início">CINE <span>ARK</span></a>
+                    <nav class="ark-main-nav" aria-label="Navegação principal"><a href="#catalogo">Catálogo</a><a href="#recentes">Recém-adicionadas</a></nav>
                     <div class="ark-rank">
                         <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i><div>
                         <span class="text-[14px] text-red-600 font-black uppercase">{{ rankTitle }}</span>
@@ -173,9 +175,12 @@
                         <template v-else><button @click="openAuth('login')" :disabled="!authReady" class="ark-btn ark-btn-secondary"><i class="fa-regular fa-user" aria-hidden="true"></i>Entrar</button><button @click="openAuth('signup')" :disabled="!authReady" class="ark-btn ark-btn-primary"><i class="fa-solid fa-plus" aria-hidden="true"></i>Criar conta</button></template>
                     </nav>
                 </div>
-                <h1 class="blood-title italic select-none">CINE ARK</h1>
-                <p class="ark-brand-caption">Seu próximo capítulo começa aqui</p>
             </header>
+
+            <section v-if="featuredWork" class="ark-feature" aria-labelledby="feature-title">
+                <div class="ark-feature-copy"><span class="ark-eyebrow">HISTÓRIAS ALÉM DO VAZIO</span><h1 id="feature-title">Sua próxima jornada<br>começa no <em>CINE ARK.</em></h1><p>Explore mangás e manhwas. Encontre sua próxima história e continue de onde parou.</p><div class="ark-feature-actions"><button class="ark-btn ark-btn-primary" @click="openWork(featuredWork)"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Explorar {{ featuredWork.title }}</button><a href="#catalogo" class="ark-btn ark-btn-secondary">Ver catálogo</a></div><span class="ark-feature-footnote">{{ catalog.length }} obras na biblioteca · Seu portal de leitura</span></div>
+                <button class="ark-feature-book" @click="openWork(featuredWork)" :aria-label="'Ver capítulos de ' + featuredWork.title"><img v-if="featuredWork.poster" :src="featuredWork.poster" :alt="'Capa de ' + featuredWork.title" fetchpriority="high"><i v-else class="fa-solid fa-book-open" aria-hidden="true"></i><span><small>EM DESTAQUE</small><strong>{{ featuredWork.title }}</strong><span>{{ featuredWork.type }} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span></span></button>
+            </section>
 
             <section v-if="recentReadings.length" class="ark-resume" aria-labelledby="resume-title">
                 <div class="ark-resume-heading"><h2 id="resume-title">Continuar lendo</h2><span>Seu próximo capítulo está aqui</span></div>
@@ -188,7 +193,7 @@
                 </div>
             </section>
 
-            <section class="mb-12">
+            <details class="ark-missions-disclosure"><summary><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i> Missões do vazio <span>Sua jornada de aura</span></summary><section class="mb-12">
                 <h2 class="text-[12px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 text-center">Missões do Vazio</h2>
                 <div class="ark-mission-grid">
                     <div v-for="m in dailyMissions" :key="m.id" :class="['mission-card p-4 rounded-2xl flex items-center justify-between', m.completed ? 'opacity-40 grayscale' : '']">
@@ -201,13 +206,15 @@
                 </div>
             </section>
 
+            </details>
+            <div class="ark-discovery-layout"><section id="catalogo" class="ark-catalog-section" aria-label="Catálogo de obras">
             <div class="ark-library-tools">
                 <div class="ark-filters" role="group" aria-label="Filtrar biblioteca">
                     <button v-for="f in ['Todos', 'lendo', 'lido', 'pretendo']" @click="currentFilter = f" :aria-pressed="currentFilter === f" :class="['ark-filter', { 'is-active': currentFilter === f }]">
-                        {{ f === 'lendo' ? 'Em Ritual' : f === 'lido' ? 'Ceifados' : f === 'pretendo' ? 'Na Mira' : 'Todos' }}
+                        {{ f === 'lendo' ? 'Lendo' : f === 'lido' ? 'Concluídos' : f === 'pretendo' ? 'Quero ler' : 'Todos' }}
                     </button>
                 </div>
-                <label class="ark-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="localSearch" aria-label="Buscar na biblioteca" placeholder="Buscar no submundo..."></label>
+                <label class="ark-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="localSearch" aria-label="Buscar na biblioteca" placeholder="Buscar título..."></label>
             </div>
 
             <div v-if="catalogError" class="ark-error" role="status">
@@ -215,6 +222,8 @@
                 <button @click="fetchFromSupabase" class="ark-btn ark-btn-secondary" style="margin-top:12px">Tentar novamente</button>
             </div>
             <div class="ark-library-heading"><div><span class="ark-eyebrow">O PORTAL ESTÁ ABERTO</span><h2>Sua biblioteca</h2></div><span>{{ filteredCatalog.length }} {{ filteredCatalog.length === 1 ? 'obra para explorar' : 'obras para explorar' }}</span></div>
+            <label class="ark-sort">Ordenar por <select v-model="catalogSort"><option value="recent">Mais recentes</option><option value="title">Título A–Z</option></select></label>
+            <p v-if="!filteredCatalog.length && !catalogError" class="ark-catalog-empty" role="status">{{ localSearch || currentFilter !== 'Todos' ? 'Nenhuma obra encontrada. Experimente outro título ou filtro.' : 'A biblioteca está sendo preparada. Volte em breve para explorar as obras.' }}</p>
             <main class="ark-catalog-grid">
                 <div v-for="(item, index) in filteredCatalog" :key="item.id" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
                     <div class="relative aspect-[2/3] bg-zinc-900">
@@ -241,7 +250,9 @@
                         <button v-if="item.type !== 'Anime'" @click="openWork(item)" class="ark-btn ark-btn-primary ark-read-button"><i class="fa-solid fa-book-open" aria-hidden="true"></i>{{ readingProgress[item.id] ? 'Continuar lendo' : 'Ler capítulos' }}</button>
                     </div>
                 </div>
-            </main>
+            </main></section>
+            <aside id="recentes" class="ark-discovery-aside" aria-labelledby="recent-title"><span class="ark-eyebrow">ACABARAM DE CHEGAR</span><h2 id="recent-title">Novas na biblioteca</h2><p>As obras adicionadas mais recentemente ao catálogo.</p><button v-for="(work, i) in recentCatalog" :key="work.id" @click="openWork(work)" class="ark-recent-row"><span class="ark-recent-position">{{ String(i + 1).padStart(2, '0') }}</span><img v-if="work.poster" :src="work.poster" alt="" loading="lazy"><span><strong>{{ work.title }}</strong><small>{{ work.type }}</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button><p v-if="!recentCatalog.length">As próximas histórias aparecerão aqui.</p><div class="ark-discovery-note"><i class="fa-solid fa-book-open" aria-hidden="true"></i><strong>Cada história, um novo universo.</strong><span>Os capítulos e idiomas disponíveis variam conforme a fonte de leitura.</span></div></aside></div>
+            <footer class="ark-site-footer"><span class="ark-wordmark">CINE <span>ARK</span></span><p>Seu próximo capítulo começa aqui.</p><a href="#catalogo">Explorar biblioteca ↑</a></footer>
         </div>
 
 
@@ -509,7 +520,7 @@
                     currentSinisterMsg: "Iniciando rituais...",
                     sinisterPhrases: ["Drenando o vazio...","As runas chamam...","Invocando almas...","Selando o pacto...","Aura em ressonância...","Não há volta..."],
                     showModal: false, showLevelUp: false, isShaking: false,
-                    currentFilter: 'Todos', localSearch: '', adminSearch: '', catalogSaving: false,
+                    currentFilter: 'Todos', catalogSort: 'recent', localSearch: '', adminSearch: '', catalogSaving: false,
                     ambientRunes: Array.from({ length: 18 }, (_, i) => ({ glyph: ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᛟ','ᛗ','ᛉ'][i % 9], style: { left: [2,7,12,89,94,98,4,10,90,96,3,97,8,92,6,94,1,99][i] + '%', top: ((i * 19 + 7) % 94) + '%', '--rune-size': (24 + i % 4 * 7) + 'px', '--rune-duration': (22 + i % 6 * 4) + 's', '--rune-delay': (-i * 3) + 's', '--rune-drift': (i % 2 ? -18 : 18) + 'px' } })),
                     newItem: { title: '', type: 'Mangá', poster: '', synopsis: '', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
                     catalog: [], catalogError: '',
@@ -525,6 +536,8 @@
                 }
             },
             computed: {
+                recentCatalog() { return [...this.catalog].filter(item => item.type !== 'Anime').sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0)).slice(0, 5); },
+                featuredWork() { return this.recentCatalog[0] || null; },
                 adminCatalog() { const query = this.adminSearch.trim().toLocaleLowerCase('pt-BR'); return this.catalog.filter(item => !query || item.title.toLocaleLowerCase('pt-BR').includes(query)); },
                 level() { return Math.floor(this.xp / 100) + 1; },
                 xpPercent() { return this.xp % 100; },
@@ -536,7 +549,7 @@
                     let list = this.catalog;
                     if (this.currentFilter !== 'Todos') list = list.filter(i => i.status === this.currentFilter);
                     if (this.localSearch) list = list.filter(i => i.title.toLowerCase().includes(this.localSearch.toLowerCase()));
-                    return list;
+                    return this.catalogSort === 'title' ? [...list].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR')) : list;
                 }
             },
             async mounted() {

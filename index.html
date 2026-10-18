@@ -160,9 +160,9 @@
         <div class="max-w-7xl mx-auto px-6 py-10 relative z-10 ark-portal">
             <header class="ark-site-header">
                 <div class="ark-topbar">
-                    <a class="ark-wordmark" href="#" aria-label="CINE ARK, início">CINE <span>ARK</span></a>
-                    <nav class="ark-main-nav" aria-label="Navegação principal"><a href="#catalogo">Catálogo</a><a href="#recentes">Recém-adicionadas</a></nav>
-                    <div class="ark-rank">
+                    <button class="ark-menu-toggle" @click="portalMenuOpen = !portalMenuOpen" :aria-expanded="portalMenuOpen" aria-controls="portal-menu" aria-label="Abrir navega&#231;&#227;o"><i class="fa-solid fa-bars" aria-hidden="true"></i></button><a class="ark-wordmark" href="#" aria-label="CINE ARK, início">CINE <span>ARK</span></a>
+                    <nav id="portal-menu" :class="['ark-main-nav', {'is-open': portalMenuOpen}]" @click="portalMenuOpen = false" aria-label="Navegação principal"><a href="#catalogo">Catálogo</a><a href="#recentes">Recém-adicionadas</a></nav>
+                    <a href="#catalogo" class="ark-header-search" aria-label="Buscar obras"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></a><div class="ark-rank">
                         <i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i><div>
                         <span class="text-[14px] text-red-600 font-black uppercase">{{ rankTitle }}</span>
                         <div class="xp-bar mt-2"><div class="xp-fill" :style="{ width: xpPercent + '%' }"></div></div>
@@ -177,10 +177,16 @@
                 </div>
             </header>
 
-            <section v-if="featuredWork" class="ark-feature" aria-labelledby="feature-title">
-                <div class="ark-feature-copy"><span class="ark-eyebrow">HISTÓRIAS ALÉM DO VAZIO</span><h1 id="feature-title">Sua próxima jornada<br>começa no <em>CINE ARK.</em></h1><p>Explore mangás e manhwas. Encontre sua próxima história e continue de onde parou.</p><div class="ark-feature-actions"><button class="ark-btn ark-btn-primary" @click="openWork(featuredWork)"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Explorar {{ featuredWork.title }}</button><a href="#catalogo" class="ark-btn ark-btn-secondary">Ver catálogo</a></div><span class="ark-feature-footnote">{{ catalog.length }} obras na biblioteca · Seu portal de leitura</span></div>
-                <button class="ark-feature-book" @click="openWork(featuredWork)" :aria-label="'Ver capítulos de ' + featuredWork.title"><img v-if="featuredWork.poster" :src="featuredWork.poster" :alt="'Capa de ' + featuredWork.title" fetchpriority="high"><i v-else class="fa-solid fa-book-open" aria-hidden="true"></i><span><small>EM DESTAQUE</small><strong>{{ featuredWork.title }}</strong><span>{{ featuredWork.type }} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span></span></button>
+            <section v-if="featuredWork" class="ark-spotlight" aria-labelledby="feature-title">
+                <img v-if="featuredWork.poster" :key="featuredWork.id" class="ark-spotlight-backdrop" :src="featuredWork.poster" alt="" fetchpriority="high">
+                <div class="ark-spotlight-shade"></div>
+                <div class="ark-spotlight-content">
+                    <img v-if="featuredWork.poster" class="ark-spotlight-cover" :src="featuredWork.poster" :alt="'Capa de ' + featuredWork.title">
+                    <div class="ark-spotlight-info"><div class="ark-spotlight-meta"><span>{{ featuredWork.type }}</span><span>EM DESTAQUE</span><span><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i> CINE ARK</span></div><h1 id="feature-title">{{ featuredWork.title }}</h1><p>{{ featuredWork.synopsis || 'Uma nova história espera por você. Explore os detalhes da obra e os capítulos disponíveis na biblioteca.' }}</p><div class="ark-spotlight-actions"><button @click="openWork(featuredWork)" class="ark-btn ark-btn-primary"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Ler agora</button><button @click="openWork(featuredWork)" class="ark-btn ark-btn-secondary">Detalhes</button></div></div>
+                </div>
+                <div v-if="recentCatalog.length > 1" class="ark-spotlight-thumbs" role="group" aria-label="Escolher obra em destaque"><button v-for="work in recentCatalog" :key="work.id" @click="featuredWorkId = work.id" :class="{'is-active': featuredWork.id === work.id}" :aria-label="'Destacar ' + work.title" :aria-pressed="featuredWork.id === work.id"><img v-if="work.poster" :src="work.poster" :alt="work.title" loading="lazy"><span v-else>{{ work.title }}</span></button></div>
             </section>
+            <section v-if="recentCatalog.length" id="recentes" class="ark-shelf" aria-labelledby="new-works-heading"><div class="ark-section-heading"><span class="ark-section-icon"><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i></span><div><h2 id="new-works-heading">Novas no universo ARK</h2><p>As obras adicionadas mais recentemente</p></div><a href="#catalogo">Ver todas <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div><div class="ark-cover-rail"><button v-for="work in recentCatalog" :key="work.id" @click="openWork(work)" class="ark-rail-card"><span class="ark-rail-art"><img v-if="work.poster" :src="work.poster" :alt="'Capa de ' + work.title" loading="lazy"><i v-else class="fa-solid fa-book-open" aria-hidden="true"></i><small>{{ work.type }}</small></span><strong>{{ work.title }}</strong><span>Explorar cap&#237;tulos</span></button></div></section>
 
             <section v-if="recentReadings.length" class="ark-resume" aria-labelledby="resume-title">
                 <div class="ark-resume-heading"><h2 id="resume-title">Continuar lendo</h2><span>Seu próximo capítulo está aqui</span></div>
@@ -193,21 +199,8 @@
                 </div>
             </section>
 
-            <details class="ark-missions-disclosure"><summary><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i> Missões do vazio <span>Sua jornada de aura</span></summary><section class="mb-12">
-                <h2 class="text-[12px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 text-center">Missões do Vazio</h2>
-                <div class="ark-mission-grid">
-                    <div v-for="m in dailyMissions" :key="m.id" :class="['mission-card p-4 rounded-2xl flex items-center justify-between', m.completed ? 'opacity-40 grayscale' : '']">
-                        <div>
-                            <p class="text-[10px] font-bold text-zinc-400 uppercase">{{ m.text }}</p>
-                            <p class="text-[8px] text-red-700 font-black">{{ m.progress }}/{{ m.goal }} • +{{ m.xp }} XP</p>
-                        </div>
-                        <i :class="m.completed ? 'fa-solid fa-check-double text-red-600' : 'fa-solid fa-skull text-zinc-800'"></i>
-                    </div>
-                </div>
-            </section>
-
-            </details>
-            <div class="ark-discovery-layout"><section id="catalogo" class="ark-catalog-section" aria-label="Catálogo de obras">
+            <section v-for="shelf in discoveryShelves" :key="shelf.title" class="ark-shelf" :aria-label="shelf.title"><div class="ark-section-heading"><span class="ark-section-icon"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span><div><h2>{{ shelf.title }}</h2><p>Outros universos para descobrir</p></div><a href="#catalogo">Ver cat&#225;logo</a></div><div class="ark-cover-rail"><button v-for="work in shelf.works" :key="work.id" @click="openWork(work)" class="ark-rail-card"><span class="ark-rail-art"><img v-if="work.poster" :src="work.poster" :alt="'Capa de ' + work.title" loading="lazy"><small>{{ work.type }}</small></span><strong>{{ work.title }}</strong><span>Ver detalhes e cap&#237;tulos</span></button></div></section>
+            <div class="ark-discovery-layout ark-full-catalog"><section id="catalogo" class="ark-catalog-section" aria-label="Catálogo de obras">
             <div class="ark-library-tools">
                 <div class="ark-filters" role="group" aria-label="Filtrar biblioteca">
                     <button v-for="f in ['Todos', 'lendo', 'lido', 'pretendo']" @click="currentFilter = f" :aria-pressed="currentFilter === f" :class="['ark-filter', { 'is-active': currentFilter === f }]">
@@ -221,12 +214,12 @@
                 <p>{{ catalogError }}</p>
                 <button @click="fetchFromSupabase" class="ark-btn ark-btn-secondary" style="margin-top:12px">Tentar novamente</button>
             </div>
-            <div class="ark-library-heading"><div><span class="ark-eyebrow">O PORTAL ESTÁ ABERTO</span><h2>Sua biblioteca</h2></div><span>{{ filteredCatalog.length }} {{ filteredCatalog.length === 1 ? 'obra para explorar' : 'obras para explorar' }}</span></div>
+            <div class="ark-section-heading ark-catalog-heading"><span class="ark-section-icon"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span><div><h2>Explore a biblioteca</h2><p>{{ filteredCatalog.length }} obras &middot; Escolha sua pr&#243;xima leitura</p></div><div class="ark-layout-switch" role="group" aria-label="Visualiza&#231;&#227;o do cat&#225;logo"><button @click="catalogView = 'grid'" :aria-pressed="catalogView === 'grid'" :class="{'is-active': catalogView === 'grid'}" aria-label="Grade"><i class="fa-solid fa-border-all" aria-hidden="true"></i></button><button @click="catalogView = 'list'" :aria-pressed="catalogView === 'list'" :class="{'is-active': catalogView === 'list'}" aria-label="Lista"><i class="fa-solid fa-list" aria-hidden="true"></i></button></div></div>
             <label class="ark-sort">Ordenar por <select v-model="catalogSort"><option value="recent">Mais recentes</option><option value="title">Título A–Z</option></select></label>
             <p v-if="!filteredCatalog.length && !catalogError" class="ark-catalog-empty" role="status">{{ localSearch || currentFilter !== 'Todos' ? 'Nenhuma obra encontrada. Experimente outro título ou filtro.' : 'A biblioteca está sendo preparada. Volte em breve para explorar as obras.' }}</p>
-            <main class="ark-catalog-grid">
+            <main :class="['ark-catalog-grid', {'ark-catalog-list': catalogView === 'list'}]">
                 <div v-for="(item, index) in filteredCatalog" :key="item.id" :class="['movie-card overflow-hidden group', getAura(item.rating)]">
-                    <div class="relative aspect-[2/3] bg-zinc-900">
+                    <div class="relative aspect-[2/3] bg-zinc-900 ark-poster-link"><button @click="openWork(item)" class="ark-poster-hit" :aria-label="'Ver capítulos de ' + item.title"></button>
                         <img :src="item.poster" :alt="'Capa de ' + item.title" loading="lazy" class="w-full h-full object-cover transition duration-700">
                         <span class="ark-cover-type">{{ item.type }}</span>
                         <div class="absolute bottom-0 left-0 w-full h-1 bg-black/50">
@@ -251,7 +244,7 @@
                     </div>
                 </div>
             </main></section>
-            <aside id="recentes" class="ark-discovery-aside" aria-labelledby="recent-title"><span class="ark-eyebrow">ACABARAM DE CHEGAR</span><h2 id="recent-title">Novas na biblioteca</h2><p>As obras adicionadas mais recentemente ao catálogo.</p><button v-for="(work, i) in recentCatalog" :key="work.id" @click="openWork(work)" class="ark-recent-row"><span class="ark-recent-position">{{ String(i + 1).padStart(2, '0') }}</span><img v-if="work.poster" :src="work.poster" alt="" loading="lazy"><span><strong>{{ work.title }}</strong><small>{{ work.type }}</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button><p v-if="!recentCatalog.length">As próximas histórias aparecerão aqui.</p><div class="ark-discovery-note"><i class="fa-solid fa-book-open" aria-hidden="true"></i><strong>Cada história, um novo universo.</strong><span>Os capítulos e idiomas disponíveis variam conforme a fonte de leitura.</span></div></aside></div>
+</div>
             <footer class="ark-site-footer"><span class="ark-wordmark">CINE <span>ARK</span></span><p>Seu próximo capítulo começa aqui.</p><a href="#catalogo">Explorar biblioteca ↑</a></footer>
         </div>
 
@@ -520,7 +513,7 @@
                     currentSinisterMsg: "Iniciando rituais...",
                     sinisterPhrases: ["Drenando o vazio...","As runas chamam...","Invocando almas...","Selando o pacto...","Aura em ressonância...","Não há volta..."],
                     showModal: false, showLevelUp: false, isShaking: false,
-                    currentFilter: 'Todos', catalogSort: 'recent', localSearch: '', adminSearch: '', catalogSaving: false,
+                    currentFilter: 'Todos', catalogSort: 'recent', catalogView: 'grid', portalMenuOpen: false, featuredWorkId: null, localSearch: '', adminSearch: '', catalogSaving: false,
                     ambientRunes: Array.from({ length: 18 }, (_, i) => ({ glyph: ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᛟ','ᛗ','ᛉ'][i % 9], style: { left: [2,7,12,89,94,98,4,10,90,96,3,97,8,92,6,94,1,99][i] + '%', top: ((i * 19 + 7) % 94) + '%', '--rune-size': (24 + i % 4 * 7) + 'px', '--rune-duration': (22 + i % 6 * 4) + 's', '--rune-delay': (-i * 3) + 's', '--rune-drift': (i % 2 ? -18 : 18) + 'px' } })),
                     newItem: { title: '', type: 'Mangá', poster: '', synopsis: '', mal_id: null, currentcount: 0, totalcount: 0, rating: 10, status: 'lendo' },
                     catalog: [], catalogError: '',
@@ -537,7 +530,8 @@
             },
             computed: {
                 recentCatalog() { return [...this.catalog].filter(item => item.type !== 'Anime').sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0)).slice(0, 5); },
-                featuredWork() { return this.recentCatalog[0] || null; },
+                discoveryShelves() { return [{ title: 'Manhwas para explorar', works: this.catalog.filter(work => work.type === 'Manhwa').slice(0, 12) }, { title: 'Mang\u00e1s para explorar', works: this.catalog.filter(work => work.type === 'Mang\u00e1').slice(0, 12) }].filter(shelf => shelf.works.length); },
+                featuredWork() { return this.recentCatalog.find(work => work.id === this.featuredWorkId) || this.recentCatalog[0] || null; },
                 adminCatalog() { const query = this.adminSearch.trim().toLocaleLowerCase('pt-BR'); return this.catalog.filter(item => !query || item.title.toLocaleLowerCase('pt-BR').includes(query)); },
                 level() { return Math.floor(this.xp / 100) + 1; },
                 xpPercent() { return this.xp % 100; },

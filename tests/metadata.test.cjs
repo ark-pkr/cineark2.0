@@ -13,6 +13,31 @@ function setup(fetcher, timers = {}) {
 const result = { title: 'Berserk', mal_id: 2, chapters: null, type: 'Manga', synopsis: 'A story.', images: { jpg: { large_image_url: 'https://example.com/cover.jpg' } } };
 const aniResult = { id: 77, idMal: 2, title: { english: 'Berserk' }, description: 'A story.', coverImage: { large: 'https://example.com/cover.jpg' }, countryOfOrigin: 'JP', chapters: null };
 const response = rows => ({ ok: true, json: async () => ({ data: { Page: { media: rows } } }) });
+
+test('Portuguese alias resolves punctuation and preserves the entered title on selection', async () => {
+    const { api, app } = setup(async (url, options) => {
+        assert.equal(JSON.parse(options.body).variables.search, 'Catastrophic Necromancer');
+        return response([aniResult]);
+    });
+    const rows = await api.search('Necromante: Rei dos Mortos');
+    app.newItem.title = 'Necromante: Rei dos Mortos';
+    app.selectResult(rows[0]);
+    assert.equal(app.newItem.title, 'Necromante: Rei dos Mortos');
+});
+
+test('unknown Portuguese title retries providers with a translated query without selecting it', async () => {
+    const calls = [];
+    const { api } = setup(async (url, options) => {
+        calls.push(url);
+        if (url.includes('mymemory')) return { ok:true, json:async()=>({responseStatus:200,responseData:{translatedText:'The Hidden Kingdom'}}) };
+        if (url.includes('jikan')) return {ok:true,json:async()=>({data:[]})};
+        return response(JSON.parse(options.body).variables.search === 'The Hidden Kingdom' ? [aniResult] : []);
+    });
+    const rows = await api.search('O Reino Escondido');
+    assert.equal(rows.length, 1);
+    assert.equal(calls.length, 4);
+    assert.ok(calls[2].includes('langpair=pt%7Cen'));
+});
 test('selection fills cover and synopsis without requiring WebP or chapter count', () => {
     const { app } = setup(); app.selectResult(result);
     assert.equal(app.newItem.poster, 'https://example.com/cover.jpg');

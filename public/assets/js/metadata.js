@@ -3,9 +3,24 @@ window.ArkMetadata = (() => {
     const cache = new Map();
     // Localized names absent from the providers' synonym indexes.
     const searchAliases = new Map([
-        ['mago da areia do deserto ardente', 'Bultan Samagui Moraesulsa']
+        ['mago da areia do deserto ardente', 'Bultan Samagui Moraesulsa'],
+        ['necromante rei dos mortos', 'Catastrophic Necromancer'],
+        ['necromante o rei da calamidade', 'Catastrophic Necromancer']
     ]);
-    const searchTitle = title => searchAliases.get(title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()) || title;
+    const normalizeTitle = title => title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const searchTitle = title => searchAliases.get(normalizeTitle(title)) || title;
+    async function searchLocalized(title, signal) {
+        title = title.trim();
+        const resolved = searchTitle(title);
+        const rows = await request('search', resolved, signal);
+        if (rows.length || resolved !== title) return rows;
+        // Translation is a query suggestion, never a verified identity or automatic selection.
+        const body = await json('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(title.slice(0, 200)) + '&langpair=pt%7Cen', {}, signal);
+        if (Number(body.responseStatus) !== 200 || body.quotaFinished) throw new Error('A busca por nomes em português está temporariamente indisponível. Tente novamente mais tarde.');
+        const translated = plainText(body.responseData?.translatedText);
+        if (!translated || normalizeTitle(translated) === normalizeTitle(title)) return rows;
+        return request('search', translated, signal);
+    }
     const imageURL = value => {
         try { const url = new URL(value); return url.protocol === 'https:' ? url.href : ''; } catch (_) { return ''; }
     };
@@ -79,7 +94,7 @@ window.ArkMetadata = (() => {
     }
     return {
         imageURL,
-        search: (title, signal) => request('search', searchTitle(title.trim()), signal),
+        search: searchLocalized,
         get: (id, signal) => {
             if (!Number.isInteger(Number(id)) || Number(id) <= 0) return Promise.reject(new Error('Selecione uma obra válida.'));
             return request('get', Number(id), signal);
@@ -151,7 +166,7 @@ window.metadataMixin = {
             if (!id && title.length < 3) { this.metadataError = 'Digite pelo menos 3 caracteres para buscar.'; return; }
             const request = this._metadataRequest;
             const controller = this._metadataController = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 12000);
+            const timeout = setTimeout(() => controller.abort(), 25000);
             this.metadataLoading = true;
             try {
                 const data = id ? await window.ArkMetadata.get(id, controller.signal) : await window.ArkMetadata.search(title, controller.signal);
@@ -169,6 +184,8 @@ window.metadataMixin = {
         selectResult(result) {
             if (!this.isAdmin) return;
             const fields = window.ArkMetadata.fields(result);
+            // Keep the reader-facing Portuguese name entered by the administrator.
+            fields.title = this.newItem.title?.trim() || fields.title;
             this.cancelMetadataSearch(); Object.assign(this.newItem, fields); this.metadataSelected = true;
             if (fields.synopsis) this.translateSynopsis();
         },

@@ -1,6 +1,11 @@
 // AniList is primary; Jikan is a fallback. Both return the same editable metadata shape.
 window.ArkMetadata = (() => {
     const cache = new Map();
+    // Localized names absent from the providers' synonym indexes.
+    const searchAliases = new Map([
+        ['mago da areia do deserto ardente', 'Bultan Samagui Moraesulsa']
+    ]);
+    const searchTitle = title => searchAliases.get(title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()) || title;
     const imageURL = value => {
         try { const url = new URL(value); return url.protocol === 'https:' ? url.href : ''; } catch (_) { return ''; }
     };
@@ -74,7 +79,7 @@ window.ArkMetadata = (() => {
     }
     return {
         imageURL,
-        search: (title, signal) => request('search', title.trim(), signal),
+        search: (title, signal) => request('search', searchTitle(title.trim()), signal),
         get: (id, signal) => {
             if (!Number.isInteger(Number(id)) || Number(id) <= 0) return Promise.reject(new Error('Selecione uma obra válida.'));
             return request('get', Number(id), signal);

@@ -83,7 +83,29 @@ window.readerMixin = {
             if (!this._progressLoadingPromise) this.loadReadingProgress();
         },
         chooseChapterFiles(event) {
-            this.chapterFiles = Array.from(event.target.files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+            this.collectChapterFiles(event.target.files);
+            event.target.value = '';
+        },
+        collectChapterFiles(files) {
+            if (!this.isAdmin || this.readerBusy) return;
+            const selected = Array.from(files || []);
+            const images = selected.filter(file => ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'].includes(file.type));
+            if (images.some(file => file.size > 15 * 1024 * 1024)) {
+                this.readerError = 'Cada página pode ter no máximo 15 MiB. Os arquivos anteriores foram mantidos.'; return;
+            }
+            const key = file => [file.webkitRelativePath || file.name, file.size, file.lastModified].join(':');
+            this.chapterFiles = [...new Map([...this.chapterFiles, ...images].map(file => [key(file), file])).values()]
+                .sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, 'pt-BR', { numeric: true }));
+            this.readerError = selected.length !== images.length ? 'Arquivos que não são imagens foram ignorados.' : '';
+        },
+        pasteChapterFiles(event) {
+            if (!this.isAdmin || this.readerBusy) return;
+            const files = Array.from(event.clipboardData?.files || []);
+            if (!files.length) {
+                this.readerError = 'Nenhuma imagem recebida. Copie uma imagem ou use Escolher arquivos / pasta.'; return;
+            }
+            event.preventDefault();
+            this.collectChapterFiles(files);
         },
         async addChapter() {
             if (!this.isAdmin || this.readerBusy) return;

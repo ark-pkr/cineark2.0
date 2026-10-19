@@ -387,9 +387,11 @@
                     <h3 class="font-bold">Publicar capítulo online</h3>
                     <label>Número <input v-model="chapterNumber" type="number" min="0.1" max="999999" step="any" required :disabled="readerBusy"></label>
                     <label>Título (opcional) <input v-model="chapterTitle" maxlength="160" :disabled="readerBusy"></label>
-                    <label>Páginas <input ref="chapterUpload" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple @change="chooseChapterFiles" required :disabled="readerBusy"></label>
+                    <div class="ark-upload-options"><label>Escolher arquivos<input ref="chapterUpload" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple @change="chooseChapterFiles" :disabled="readerBusy"></label><label>Escolher pasta<input type="file" webkitdirectory directory multiple @change="chooseChapterFiles" :disabled="readerBusy"></label></div>
+                    <div class="ark-upload-paste" tabindex="0" role="group" aria-label="Colar imagens das páginas" @paste="pasteChapterFiles"><i class="fa-regular fa-paste" aria-hidden="true"></i><strong>Cole suas imagens aqui</strong><span>Clique nesta área e pressione Ctrl + V. Se o navegador não receber os arquivos copiados, use os seletores acima.</span></div>
+                    <div v-if="chapterFiles.length" class="ark-upload-selection"><span role="status">{{ chapterFiles.length }} páginas selecionadas</span><button type="button" @click="chapterFiles = []" :disabled="readerBusy" class="ark-btn-ghost">Limpar seleção</button></div>
                     <p class="ark-note">Use imagens próprias ou autorizadas, com até 15 MiB por página. A ordem segue o nome dos arquivos: 1, 2, 3… O capítulo será publicado após o envio de todas as páginas.</p>
-                    <ol v-if="chapterFiles.length" class="max-h-40 overflow-auto"><li v-for="(file, i) in chapterFiles" :key="i">{{ i + 1 }}. {{ file.name }}</li></ol>
+                    <ol v-if="chapterFiles.length" class="max-h-40 overflow-auto"><li v-for="(file, i) in chapterFiles" :key="i">{{ i + 1 }}. {{ file.webkitRelativePath || file.name }}</li></ol>
                     <button :disabled="readerBusy" type="submit">{{ readerBusy ? 'Aguarde…' : 'Enviar e publicar capítulo' }}</button>
                 </form></details>
                 </section>

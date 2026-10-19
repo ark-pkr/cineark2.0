@@ -1,5 +1,21 @@
 /* CINE ARK — atmosphere, hierarchy and comfortable reading. */
 [v-cloak] { display:none; }
+.ark-panel.ark-chapter-focused { max-width:1000px; padding:28px 32px 60px; }
+.ark-chapter-focused>.ark-back { margin-bottom:16px; }
+.ark-chapters-heading { margin:0 0 20px; }
+.ark-chapters-heading h2 { font-size:clamp(23px,3vw,32px); font-weight:700; line-height:1.25; margin-top:4px; }
+.ark-chapter-focused .ark-source-tabs { margin:14px 0; }
+.ark-chapter-focused .ark-work-chapter-tools { margin:14px 0; }
+.ark-chapter-focused .ark-dex-options { margin:12px 0; }
+.ark-chapter-focused .ark-chapter { margin:8px 0; padding:12px 14px; border-radius:9px; }
+.ark-chapter-focused .ark-chapter-list-actions { margin:12px 0; }
+.ark-chapter-focused .ark-chapter-empty { padding:16px 0; }
+.ark-work-details { border-top:1px solid #73304755; margin-top:24px; padding-top:15px; }
+.ark-work-details>summary,.ark-edition-tools>summary { cursor:pointer; color:#ca98ac; font-size:12px; padding:8px 0; }
+.ark-work-details-content { padding-top:20px; }
+.ark-edition-tools { margin:10px 0; }
+.ark-edition-tools .ark-dex-search { margin-top:12px; }
+@media(max-width:600px) { .ark-panel.ark-chapter-focused { padding:20px 16px 40px; } .ark-chapter-focused .ark-work-chapter-tools { gap:10px; } .ark-chapter-focused .ark-work-chapter-tools label { min-width:130px; } }
 .ark-route-preview { max-width:1000px; margin:40px auto; padding:24px; color:#ecdce3; background:#160b13; border:1px solid #6d233b; border-radius:18px; }
 .ark-route-preview h1 { font-size:32px; font-weight:700; margin:20px 0; }
 .ark-route-preview img { object-fit:cover; border-radius:10px; margin-bottom:20px; }

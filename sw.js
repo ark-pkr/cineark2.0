@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v30-discovery';
+const CACHE_NAME = 'cine-ark-v31-chapter-focused';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
 const ASSETS = ['./index.html','./reader.js','./reader-controls.js','./personal-library.js','./discovery.js','./external-progress.js',

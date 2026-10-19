@@ -1,7 +1,7 @@
-const CACHE_NAME = 'cine-ark-v29-auth-splash';
+const CACHE_NAME = 'cine-ark-v30-discovery';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
-const ASSETS = ['./index.html','./reader.js','./reader-controls.js','./personal-library.js','./external-progress.js',
+const ASSETS = ['./index.html','./reader.js','./reader-controls.js','./personal-library.js','./discovery.js','./external-progress.js',
     './continue-reading.js','./page-translation.js','./mangadex.js','./cloud-reader.js','./auth.js','./metadata.js',
     './translation.js','./config.js','./reader.css','./theme.css','./manifest.json'];
 self.addEventListener('install', event => {

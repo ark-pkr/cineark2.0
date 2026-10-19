@@ -26,6 +26,7 @@ window.personalLibraryMixin = {
         chapterWasRead(chapter) { return !!this.chapterHistory[this.historyKey(chapter.source || 'remote',chapter.id)]; },
         filterWorkChapters(chapters) { const q=this.chapterSearch.trim().toLocaleLowerCase('pt-BR'); return [...chapters].filter(row=>!q || [row.number,row.title,row.group].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q))).sort((a,b)=>(Number(a.number)-Number(b.number))*(this.chapterOrder==='desc'?-1:1)); },
         resetPersonalAccount() {
+            this.resetDiscoveryAccount?.();
             this._personalEpoch=(this._personalEpoch||0)+1; this.personalLibrary={}; this.chapterHistory={}; this.personalError=''; this.personalBusy=false; this.personalLoading=false; this.showProfile=false;
             this._historyPending=new Set(); clearTimeout(this._personalTimer);
             if(this.userSession) this._personalTimer=setTimeout(()=>this.loadPersonalData(),0);

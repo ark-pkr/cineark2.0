@@ -1,12 +1,13 @@
 window.ArkSplash = (() => {
-    let returningFromAuth = false;
+    let returningFromAuth = false, directWorkLink = false;
     try {
         const url = new URL(window.location.href), hash = new URLSearchParams(url.hash.slice(1));
         returningFromAuth = ['access_token','refresh_token','type','error','error_description'].some(key=>hash.has(key)) || url.searchParams.has('code');
+        directWorkLink=url.pathname.startsWith('/obra/') || url.hash.startsWith('#/obra/');
     } catch (_) {}
     return {
         shouldShow() {
-            if (returningFromAuth) return false;
+            if (returningFromAuth || directWorkLink) return false;
             try { return sessionStorage.getItem('ark-splash-seen') !== '1'; } catch (_) { return true; }
         },
         dismiss() { try { sessionStorage.setItem('ark-splash-seen','1'); } catch (_) {} }
@@ -27,6 +28,7 @@ window.authMixin = {
             const url = new URL(configured || window.location.href);
             if (!['https:', 'http:'].includes(url.protocol)) throw new Error('Sirva o site por HTTP ou HTTPS.');
             url.hash = ''; url.search = '';
+            if(url.pathname.startsWith('/obra/'))url.pathname='/';
             return url.href;
         },
         async removeCatalogItem(item) {
@@ -48,6 +50,8 @@ window.authMixin = {
             finally { if (userId === this.userSession?.user?.id) this.readerBusy = false; }
         },
         openAuth(view = 'login') {
+            const slug=this.currentWorkSlug?.();
+            if(slug){try{sessionStorage.setItem('ark-return-work',slug);}catch(_){}}
             this.dismissSplash();
             this.authView = view; this.authError = ''; this.authMessage = '';
             this.authPassword = ''; this.authConfirm = '';
@@ -80,6 +84,7 @@ window.authMixin = {
             if (previousId !== session?.user?.id && this.activeChapter) this.closeReader();
             this.userSession = session;
             if (session?.user) this.dismissSplash();
+            if(session?.user && this.restoreWorkRoute)setTimeout(()=>this.restoreWorkRoute(),0);
             this.authReady = true;
             if (previousId !== session?.user?.id) {
                 this.resetPersonalAccount?.();

@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 function setup(fetcher, timers = {}) {
     const context = { window: { ArkTranslation: { toPortuguese: async text => text } }, URL, AbortController, DOMException, fetch: fetcher, setTimeout: () => 0, clearTimeout() {}, ...timers };
-    vm.createContext(context); vm.runInContext(fs.readFileSync('metadata.js', 'utf8'), context);
+    context.crypto=require('node:crypto').webcrypto;
+    vm.createContext(context); vm.runInContext(fs.readFileSync('discovery.js', 'utf8'), context); vm.runInContext(fs.readFileSync('metadata.js', 'utf8'), context);
     const mixin = context.window.metadataMixin;
     return { api: context.window.ArkMetadata,
         app: { ...mixin.data(), ...mixin.methods, isAdmin: true, showModal: true, newItem: { title: 'Berserk' } } };
@@ -132,7 +133,8 @@ test('missing database columns keep the Portuguese synopsis and show inline setu
     const context = { window: { readerMixin: {}, authMixin: {}, metadataMixin: {}, ArkMetadata: { imageURL: url => url } },
         alert() { throw new Error('Database errors must not use blocking alerts'); },
         _supabase: { from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: null, error: { code: 'PGRST204' } }) }) }) }) } };
-    vm.createContext(context);
+    context.crypto=require('node:crypto').webcrypto;
+    vm.createContext(context);vm.runInContext(fs.readFileSync('discovery.js','utf8'),context);
     const options = vm.runInContext('(' + html.slice(start, end) + ')', context);
     const app = { ...options.data(), ...options.methods, isAdmin: true, synopsisTranslating: false,
         userSession: { user: { id: 'admin' } }, cancelMetadataSearch() {} };

@@ -91,13 +91,15 @@ test('confirmation redirect preserves deployment subdirectories and removes sess
     assert.throws(() => redirect(), /HTTP/);
 });
 
-test('reader cannot upload or delete chapters and visitor is asked to sign in', async () => {
+test('visitors can view work details but must sign in to read chapters', async () => {
     const { app } = setup();
     await app.addChapter();
     await app.deleteChapter({ id: 'chapter' });
     await app.openWork({ id: 'work' });
+    assert.equal(app.readingWork.id, 'work');
+    await app.openChapter({id:'chapter',source:'remote',published:true});
     assert.equal(app.authView, 'login');
-    assert.equal(app.readingWork, null);
+    assert.equal(app.activeChapter, null);
 });
 
 test('inline application JavaScript parses', () => {

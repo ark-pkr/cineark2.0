@@ -96,14 +96,16 @@ export function createMangaDexProxy({ fetcher = fetch, allowedOrigins = LOCAL_OR
             if (op === 'feed') {
                 const mangaId = id(value), language = url.searchParams.get('language') || 'pt-br';
                 if (!['pt-br', 'pt', 'en', 'es', 'es-la', 'fr', 'de', 'it', 'ja', 'ko', 'zh', 'zh-hk'].includes(language)) throw new ProxyError('Idioma não suportado.', 400);
-                const offset = integer(url.searchParams.get('offset'), 9900);
+                const requestedOffset = integer(url.searchParams.get('offset'), 9900);
+                const offset = url.searchParams.get('recent')==='1' ? 0 : requestedOffset;
                 const params = new URLSearchParams({ limit: '100', offset: String(offset), 'translatedLanguage[]': language,
                     'order[volume]': 'asc', 'order[chapter]': 'asc', 'includes[]': 'scanlation_group', includeEmptyPages: '0', includeExternalUrl: '0', includeFutureUpdates: '0' });
+                if(url.searchParams.get('recent')==='1') {params.set('limit','20');params.set('offset','0');params.delete('order[volume]');params.delete('order[chapter]');params.set('order[publishAt]','desc');}
                 const result = await api('/manga/' + mangaId + '/feed?' + params);
                 const data = result.data.filter(c => c.attributes?.pages > 0 && !c.attributes.externalUrl && !c.attributes.isUnavailable).map(c => ({
                     id: c.id, source: 'mangadex', mangaId, number: c.attributes.chapter || 'Especial', title: c.attributes.title || '',
                     language: c.attributes.translatedLanguage, pageCount: c.attributes.pages, published: true,
-                    volume: c.attributes.volume || '', group: c.relationships?.find(r => r.type === 'scanlation_group')?.attributes?.name || '' }));
+                    volume: c.attributes.volume || '', publishedAt:c.attributes.publishAt || '', group: c.relationships?.find(r => r.type === 'scanlation_group')?.attributes?.name || '' }));
                 return json({ data, offset, nextOffset: offset + result.data.length, total: result.total,
                     limited: result.total > 10000 && offset + result.data.length >= 10000,
                     hasMore: offset + result.data.length < Math.min(result.total, 10000) && result.data.length > 0 });

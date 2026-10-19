@@ -48,7 +48,10 @@ window.readerMixin = {
             finally { if (userId === this.userSession?.user?.id && request === this._workRequest) this.readerBusy = false; }
         },
         async openWork(item) {
-            if (!this.userSession) { this.openAuth('login'); return; }
+            if (!this.userSession) {
+                this.readingWork=item;this.chapters=[];this.localChapters=[];this.readerError='';this.resetMangaDex?.(item);
+                return;
+            }
             if (this.readerBusy) return;
             const request = this._workRequest = (this._workRequest || 0) + 1;
             const userId = this.userSession.user.id;

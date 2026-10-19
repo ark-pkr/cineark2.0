@@ -1,4 +1,60 @@
 /* CINE ARK — atmosphere, hierarchy and comfortable reading. */
+[v-cloak] { display:none; }
+.ark-route-preview { max-width:1000px; margin:40px auto; padding:24px; color:#ecdce3; background:#160b13; border:1px solid #6d233b; border-radius:18px; }
+.ark-route-preview h1 { font-size:32px; font-weight:700; margin:20px 0; }
+.ark-route-preview img { object-fit:cover; border-radius:10px; margin-bottom:20px; }
+.ark-route-preview p { line-height:1.9; margin:12px 0; }
+.ark-discovery-controls { display:flex; flex-wrap:wrap; gap:14px; align-items:end; margin-bottom:12px; }
+.ark-discovery-controls label { display:grid; gap:7px; flex:1; min-width:150px; color:#bea4b3; font-size:11px; }
+.ark-discovery-controls select,.ark-quality-panel select,.ark-atmosphere-panel select { min-height:44px; width:100%; color:#f5e2ec; background:#180c15; border:1px solid #6d2b4366; border-radius:9px; padding:10px; font-size:12px; }
+.ark-filter-explanation { font-size:10px; color:#b18d9f; line-height:1.8; margin-bottom:24px; }
+.ark-atmosphere-panel { max-width:520px; margin:40px auto; background:#140c13; border:1px solid #7a3047; border-radius:20px; padding:30px; }
+.ark-atmosphere-panel h2 { font-size:26px; font-weight:700; margin:10px 0; }
+.ark-atmosphere-panel>label { display:grid; gap:10px; margin:24px 0; font-size:13px; color:#e2c8d5; }
+.ark-atmosphere-panel .ark-motion-toggle { display:flex; align-items:center; gap:12px; }
+.ark-motion-toggle input { width:20px; height:20px; accent-color:#e72a4e; }
+.ark-motion-off :is(.ark-rune-field span,.floating-rune,.runes-layer,.inner-brand,.pentagram-overlay,.sinister-msg,.ember,.click-prompt) { animation:none !important; transition:none !important; }
+.ark-motion-off .ember { display:none; }
+.ark-runes-off :is(.runes-layer,.floating-rune) { visibility:hidden; }
+.ark-updates-panel { margin:28px 0 48px; padding:24px; border:1px solid #74243d55; border-radius:16px; background:#180b1322; }
+.ark-updates-panel .ark-section-heading { flex-wrap:wrap; }
+.ark-updates-panel .ark-section-heading>button,.ark-quality-panel .ark-section-heading>button { margin-left:auto; }
+.ark-update-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:14px; margin-top:20px; }
+.ark-update-card { display:grid; gap:8px; border:1px solid #6a2c4255; border-radius:12px; padding:18px; background:#160d14; }
+.ark-update-card strong { font-size:13px; }
+.ark-update-card>span { font-size:11px; color:#b69daa; }
+.ark-update-card small { color:#a48496; font-size:10px; line-height:1.7; }
+.ark-update-card p { color:#f19caf; font-size:11px; line-height:1.6; }
+.ark-update-card .ark-toolbar { margin:8px 0 0; }
+.ark-update-card .ark-toolbar button { min-height:36px; padding:8px; font-size:10px; }
+.ark-update-card>span.ark-new-badge,.ark-cover-update { color:#ffd3e0; border:1px solid #c5375c77; border-radius:5px; background:#9e1533; padding:4px 7px; font-size:10px; width:fit-content; }
+.ark-cover-update { position:absolute; bottom:10px; left:8px; z-index:2; pointer-events:none; }
+.ark-quality-panel { padding:22px; background:#22101b88; border:1px solid #7a2b4555; border-radius:16px; margin-bottom:28px; }
+.ark-quality-panel .ark-section-heading { flex-wrap:wrap; gap:14px; }
+.ark-quality-panel h3 { font-size:18px; font-weight:700; }
+.ark-quality-panel label { display:grid; gap:8px; font-size:11px; color:#c7a6b8; max-width:420px; }
+.ark-quality-counts { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+.ark-quality-counts span { padding:7px 10px; border-radius:7px; background:#4d1c3033; color:#e2a3bb; font-size:11px; }
+.ark-quality-result { flex-basis:100%; color:#bca0af; font-size:11px; line-height:1.7; }
+.ark-share-row { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:24px 0; }
+.ark-share-row span { font-size:12px; color:#e3a4bc; overflow-wrap:anywhere; }
+.ark-related-section { margin-top:42px; padding-top:28px; border-top:1px solid #72304744; }
+.ark-related-section .ark-section-heading h3 { font-size:18px; font-weight:700; }
+.ark-ambient-toggle { display:grid; place-items:center; height:34px; width:32px; flex-shrink:0; color:#cf8ba1; }
+.ark-card-edit { min-width:24px; min-height:24px; margin-left:4px; font-size:10px; color:#c88b9f; }
+.ark-card-title a:focus-visible,.ark-ambient-toggle:focus-visible { outline:2px solid #f67c9c; outline-offset:3px; }
+.ark-motion-off .ark-rune-field { transition:none; }
+.ark-motion-off .blood-curtain { display:none; }
+@media(prefers-reduced-motion:reduce) { .pentagram-overlay,.sinister-msg,.click-prompt,.ember { animation:none !important; } .ember { display:none; } }
+@media(max-width:700px) {
+  .ark-portal .ark-topbar>a.ark-header-search { display:none; }
+  .ark-portal .ark-account-actions button:has(.fa-sliders)>span { display:none; }
+  .ark-portal .ark-account-actions button:has(.fa-arrow-right-from-bracket) { font-size:0; }
+  .ark-portal .ark-account-actions button:has(.fa-arrow-right-from-bracket)>i { font-size:12px; }
+  .ark-portal .ark-account-actions { gap:5px; flex-shrink:0; }
+}
+@media(max-width:700px) and (pointer:coarse) { .ark-portal .ark-account-actions .ark-btn,.ark-portal .ark-menu-toggle,.ark-ambient-toggle { min-height:44px; min-width:40px; padding-inline:7px; } .ark-portal .ark-wordmark { font-size:24px; } }
+@media(max-width:700px) { .ark-discovery-controls { gap:10px; } .ark-discovery-controls label { min-width:140px; } .ark-updates-panel { padding:18px; } .ark-update-grid { grid-template-columns:1fr; } .ark-updates-panel .ark-section-heading>button { margin-left:0; } .ark-atmosphere-panel { margin:20px 12px; padding:24px; } .ark-portal .ark-main-nav { max-width:calc(100vw - 48px); } .ark-portal .ark-topbar { gap:5px; } .ark-ambient-toggle { width:26px; } .ark-portal .ark-catalog-grid .ark-card-favorite { width:36px; height:36px; } }
 .ark-spotlight { position:relative; min-height:470px; display:flex; align-items:center; isolation:isolate; margin:0 -24px 26px; overflow:hidden; background:#0c0609; }
 .ark-spotlight-backdrop { position:absolute; z-index:-3; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 30%; opacity:.52; }
 .ark-spotlight-shade { position:absolute; z-index:-2; inset:0; background:linear-gradient(0deg,#020202 0%,transparent 65%),linear-gradient(90deg,#020202f5 0%,#060206c9 35%,#10030933 100%); }

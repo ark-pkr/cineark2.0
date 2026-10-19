@@ -21,7 +21,7 @@ const port = Number(process.env.PORT || process.env.ARK_MANGADEX_PORT || 8787);
 const host = process.env.PORT ? '0.0.0.0' : '127.0.0.1';
 const publicOrigin = process.env.RENDER_EXTERNAL_URL ? new URL(process.env.RENDER_EXTERNAL_URL).origin : null;
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Porta inválida.');
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.png': 'image/png' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.png': 'image/png', '.woff2':'font/woff2', '.ttf':'font/ttf' };
 const publicFiles = new Set(PUBLIC_FILES);
 export const server = http.createServer(async (incoming, outgoing) => {
     try {

@@ -23,6 +23,11 @@ test('reaction toggle allows only one reaction per chapter and keeps editions se
     await app.reactToChapter('surpreendente');await app.reactToChapter('surpreendente');assert.equal(app.activeReaction,'');
     assert.equal(Object.keys(app.chapterReactions).length,1);
 });
+test('reaction feedback belongs to the current chapter and survives reloading guest state',async()=>{
+    const {app}=setup();await app.reactToChapter('epico');assert.match(app.activeReactionMessage,/salva/);
+    app.activeChapter={id:'another',source:'remote'};assert.equal(app.activeReactionMessage,'');
+    app.resetGrimoireAccount();app.activeChapter={id:'chapter',source:'remote'};assert.equal(app.activeReaction,'epico');
+});
 test('late account write cannot populate the newly selected account',async()=>{
     let finish;const {app}=setup({from:()=>({upsert:()=>new Promise(resolve=>{finish=resolve;})})});
     app.userSession={user:{id:'a'}};

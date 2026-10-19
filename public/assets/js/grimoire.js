@@ -1,9 +1,10 @@
 window.grimoireMixin = {
-    data() { return { showGrimoire:false, grimoires:[], grimoireName:'', grimoireSearch:'', communityBusy:false, communityLoading:false, communityMessage:'', chapterReactions:{}, reactionOptions:[{id:'epico',label:'Épico',icon:'fa-fire'},{id:'surpreendente',label:'Surpreendente',icon:'fa-bolt'},{id:'emocionante',label:'Emocionante',icon:'fa-heart'}] }; },
+    data() { return { showGrimoire:false, grimoires:[], grimoireName:'', grimoireSearch:'', communityBusy:false, communityLoading:false, communityMessage:'', reactionMessage:'',reactionMessageKey:'',chapterReactions:{}, reactionOptions:[{id:'epico',label:'Épico',icon:'fa-fire'},{id:'surpreendente',label:'Surpreendente',icon:'fa-bolt'},{id:'emocionante',label:'Emocionante',icon:'fa-heart'}] }; },
     computed: {
         grimoireCatalog() { const q=window.ArkDiscovery.normalize(this.grimoireSearch);return this.catalog.filter(work=>window.ArkDiscovery.normalize(work.title).includes(q)).slice(0,80); },
         activeReactionKey() { return this.activeChapter && this.readingWork ? [this.readingWork.id,this.activeChapter.source,this.activeChapter.id].join(':') : ''; },
-        activeReaction() { return this.chapterReactions[this.activeReactionKey] || ''; }
+        activeReaction() { return this.chapterReactions[this.activeReactionKey] || ''; },
+        activeReactionMessage() {return this.reactionMessageKey===this.activeReactionKey?this.reactionMessage:'';}
     },
     watch: {
         userSession(next,previous) { if(next?.user?.id!==previous?.user?.id) this.resetGrimoireAccount(); }
@@ -11,11 +12,12 @@ window.grimoireMixin = {
     methods: {
         communityStorageKey() { return 'ark-grimoire:'+ (this.userSession?.user?.id || 'guest'); },
         persistGrimoire() {
-            try {localStorage.setItem(this.communityStorageKey(),JSON.stringify({collections:this.grimoires,reactions:this.chapterReactions}));}
-            catch(_) {this.communityMessage='Não foi possível guardar os dados neste navegador.';}
+            try {localStorage.setItem(this.communityStorageKey(),JSON.stringify({collections:this.grimoires,reactions:this.chapterReactions}));return true;}
+            catch(_) {this.communityMessage='Não foi possível guardar os dados neste navegador.';return false;}
         },
         resetGrimoireAccount() {
             this._grimoireEpoch=(this._grimoireEpoch || 0)+1;this.grimoires=[];this.chapterReactions={};this.grimoireName='';this.grimoireSearch='';this.communityBusy=false;this.communityLoading=false;this.communityMessage='';this.showGrimoire=false;
+            this.reactionMessage='';this.reactionMessageKey='';
             try {
                 const saved=JSON.parse(localStorage.getItem(this.communityStorageKey()) || '{}');
                 this.grimoires=Array.isArray(saved.collections)?saved.collections.filter(c=>typeof c.id==='string' && typeof c.name==='string' && Array.isArray(c.work_ids)).slice(0,100):[];
@@ -74,7 +76,7 @@ window.grimoireMixin = {
             if(this.communityBusy || this.communityLoading || !this.activeReactionKey || !this.reactionOptions.some(r=>r.id===reaction))return;
             const key=this.activeReactionKey,chapter=this.activeChapter,work=this.readingWork,uid=this.userSession?.user?.id,epoch=this._grimoireEpoch;
             const remove=this.chapterReactions[key]===reaction;
-            this.communityBusy=true;this.communityMessage='';
+            this.communityBusy=true;this.reactionMessageKey=key;this.reactionMessage='Salvando reação…';
             try {
                 if(uid){const row={user_id:uid,work_id:work.id,source:chapter.source,chapter_id:String(chapter.id),reaction};
                     if(!['remote','mangadex'].includes(row.source))throw new Error('Cópia local');
@@ -83,8 +85,8 @@ window.grimoireMixin = {
                 }
                 if(uid!==this.userSession?.user?.id || epoch!==this._grimoireEpoch)return;
                 if(remove)delete this.chapterReactions[key];else this.chapterReactions[key]=reaction;
-                this.persistGrimoire();this.communityMessage=remove?'Reação removida.':'Sua reação foi salva.';
-            }catch(_){if(uid===this.userSession?.user?.id && epoch===this._grimoireEpoch)this.communityMessage='Não foi possível salvar sua reação. Tente novamente.';}
+                const cached=this.persistGrimoire();this.reactionMessage=uid || cached ? (remove?'Reação removida.':'Sua reação foi salva.'):'O navegador não permitiu salvar sua reação. Ela ficará disponível apenas enquanto esta página estiver aberta.';
+            }catch(_){if(uid===this.userSession?.user?.id && epoch===this._grimoireEpoch)this.reactionMessage='Não foi possível salvar sua reação. Tente novamente.';}
             finally{if(uid===this.userSession?.user?.id && epoch===this._grimoireEpoch)this.communityBusy=false;}
         }
     },

@@ -17,6 +17,20 @@ function setup(extraContext={}) {
 }
 const dex = (id, number, group = 'A') => ({ id, number, group, volume: '1', source: 'mangadex', published: true, mangaId: 'manga', language: 'pt-br' });
 
+test('a short chapter reveals reactions after its final image loads without any scroll event',async()=>{
+    const app=setup();app.activeChapter={id:'short',source:'remote'};app.pageURLs=['page'];app.readerPage=0;
+    const page={clientHeight:400,getBoundingClientRect:()=>({top:130,bottom:530})};
+    app.$refs={readerScroll:{querySelector:()=>page,getBoundingClientRect:()=>({top:0,bottom:800})}};
+    app.checkReaderCompletion();assert.equal(app.readerEndReached,false);
+    await app.readerPageReady({target:{dataset:{chapter:'short'}}},0);
+    assert.equal(app.readerEndReached,true);assert.equal(app.readerControlsHidden,false);
+});
+test('the reaction shortcut reveals the panel and cancels marathon countdown',async()=>{
+    const app=setup();let scrolled=false;app.readerMarathonRemaining=6;
+    app.$refs={readerScroll:{querySelector:()=>({scrollIntoView(){scrolled=true;}})}};
+    await app.revealChapterReactions();assert.equal(app.readerEndReached,true);assert.equal(scrolled,true);assert.equal(app.readerMarathonRemaining,0);
+});
+
 test('desktop idle collapses bars and moving to the top edge restores them',()=>{
     let idle;const app=setup({setTimeout:fn=>{idle=fn;return 1;}});app.activeChapter=dex('one','1');app.$refs={};
     const target={getBoundingClientRect:()=>({top:0,height:900})};

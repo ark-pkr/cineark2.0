@@ -2,6 +2,7 @@ import { mkdir, copyFile, lstat, rm } from 'node:fs/promises';
 import { dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PUBLIC_FILES } from './public-assets.mjs';
+import './prepare-assets.mjs';
 const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
 const output=resolve(root,'dist');
 // Only regenerate this project's named build directory; never follow a symlink.

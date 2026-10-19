@@ -10,6 +10,7 @@ public/                 Site publicado
   assets/js/            Código do navegador e configuração pública
   assets/css/           Estilos
   assets/images/        Ícones e imagens locais
+  assets/vendor/        Bibliotecas de produção, fontes, ícones e licenças
   index.html            Entrada do site
   sw.js                 Service worker (na raiz do site para manter seu escopo)
 scripts/                Servidor Node, build e ferramentas de verificação
@@ -21,13 +22,13 @@ docs/                   Guias de configuração
 dist/                   Publicação gerada pelo build; não editar
 ```
 
-Execute `npm start` para desenvolvimento com as rotas e APIs locais. Para gerar a pasta de publicação: `npm run build`. O Netlify usa essa mesma preparação automaticamente. Configure o Live Server para servir `public/` como raiz se preferir usá-lo.
+Instale as dependências com `npm ci`. Execute `npm start` para desenvolvimento com as rotas e APIs locais. Para gerar a pasta de publicação: `npm run build`. O Netlify usa essa mesma preparação automaticamente. Configure o Live Server para servir `public/` como raiz se preferir usá-lo.
 
 ## Usar
 
 Para a integração de capítulos do MangaDex, consulte [MANGADEX.md](docs/MANGADEX.md). O comando `node scripts/mangadex-server.mjs` serve o site e o intermediário de imagens local em `http://127.0.0.1:8787`. A aba MangaDex já está integrada ao leitor; o intermediário precisa estar em execução.
 
-Sirva a pasta com `python -m http.server 8080 --directory public` e acesse `http://localhost:8080`. As bibliotecas carregadas por CDN precisam de internet.
+Sirva a pasta com `python -m http.server 8080 --directory public` e acesse `http://localhost:8080`. Vue de produção, cliente Supabase, fontes e ícones são servidos localmente. O build gera `assets/css/utilities.css` com o Tailwind e prepara `assets/vendor/` a partir das versões fixas no `package-lock.json`. Esses arquivos também ficam no service worker. APIs de catálogo, autenticação e imagens externas continuam precisando de internet.
 
 1. Em **Entrar**, use **Criar conta com e-mail** para cadastrar um leitor ou **Entrar** para acessar uma conta existente. O Supabase pode exigir confirmação do e-mail.
 2. Administradores veem **Painel administrativo**, onde podem cadastrar e editar obras Mangá, Manhwa ou Manhua.

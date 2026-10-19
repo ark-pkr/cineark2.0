@@ -46,6 +46,17 @@ window.readerControlsMixin = {
         }
     },
     methods: {
+        checkReaderCompletion(root=this.$refs.readerScroll) {
+            const last=this.pageURLs.length-1;
+            if(!root || last<0 || !this.readerLoadedPages[last] || this.readerFailedPages[last])return;
+            if(this.readingMode==='paged'){if(this.readerPage===last)this.readerEndReached=true;return;}
+            const page=root.querySelector(`[data-page="${last}"]`);
+            if(page && page.getBoundingClientRect().bottom<=root.getBoundingClientRect().bottom-40){this.readerEndReached=true;this.readerControlsHidden=false;}
+        },
+        async revealChapterReactions() {
+            this.cancelReaderMarathon();this.readerEndReached=true;this.readerControlsHidden=false;
+            await this.$nextTick();this.$refs.readerScroll?.querySelector('.ark-chapter-reactions')?.scrollIntoView({block:'center'});
+        },
         readerPointerMoved(event) {
             if(event.pointerType!=='mouse' || !this.activeChapter) return;
             clearTimeout(this._readerIdleTimer);
@@ -99,6 +110,7 @@ window.readerControlsMixin = {
                 this._readerLastScroll=root.scrollTop;
             }
             const last=this.pageURLs.length-1;
+            this.checkReaderCompletion(root);
             if(root.scrollTop+root.clientHeight>=root.scrollHeight-60 && this.readerLoadedPages[last]) {this.readerEndReached=true;this.readerControlsHidden=false;this._marathonReachedBottom=true;this.startReaderMarathon();}
             // Store an offset within the current page, rather than a brittle total scrollTop.
             const page=root.querySelector(`[data-page="${this.readerPage}"]`);
@@ -145,6 +157,7 @@ window.readerControlsMixin = {
             } else if(this.readingMode==='vertical' && index<this.readerPage && anchor && Number.isFinite(anchorTop)) {
                 root.scrollTop+=anchor.getBoundingClientRect().top-anchorTop;
             }
+            this.checkReaderCompletion(root);
         },
         async jumpReaderPage(index) {
             if (!this.activeChapter || !this.pageURLs.length || !Number.isFinite(index)) return;

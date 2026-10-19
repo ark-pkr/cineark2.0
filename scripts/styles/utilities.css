@@ -1,0 +1,13 @@
+@import "tailwindcss" source(none);
+/* Preserve the existing CINE ARK palette and default borders. */
+@theme {
+  --color-red-500:#ef4444;
+  --color-red-600:#dc2626;
+  --color-red-900:#7f1d1d;
+  --color-zinc-900:#18181b;
+}
+@layer base {
+  *,::before,::after,::backdrop,::file-selector-button { border-color:#e5e7eb; }
+  button,[role="button"] { cursor:pointer; }
+  button:disabled { cursor:default; }
+}

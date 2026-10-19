@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>CINE ARK | ULTIMATE AURA</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&family=Bangers&family=Metal+Mania&family=Noto+Sans+Runic&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>window.addEventListener('error',function(event){if(event.target && event.target.tagName==='SCRIPT')document.documentElement.dataset.runtimeError='true';},true);</script>
+    <link rel="stylesheet" href="assets/css/utilities.css">
+    <script src="assets/vendor/vue/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+    <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="assets/css/reader.css">
     <link rel="stylesheet" href="assets/css/theme.css">
     <script src="assets/js/cloud-reader.js"></script>
@@ -26,11 +27,11 @@
     <script src="assets/js/metadata.js"></script>
     <script src="assets/js/config.js"></script>
     <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#3a0000">
     <link rel="apple-touch-icon" href="assets/images/icone.png">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/vendor/supabase/supabase.js"></script>
     <style>
         :root { --bg-dark: #020202; --blood-dark: #3a0000; --blood-fresh: #cc0000; --void-purple: #3a0066; }
         body { font-family: 'Poppins', sans-serif; background-color: var(--bg-dark); color: white; overflow-x: hidden; }
@@ -132,6 +133,9 @@
 </head>
 
 <body :class="{'shake': isShaking}" class="pb-24">
+    <style>.ark-runtime-error{display:none;position:fixed;inset:0;z-index:20000;padding:15vh 24px;text-align:center;background:#0d070b;color:#f5dce5;font:16px/1.8 sans-serif}.ark-runtime-error button{display:block;margin:24px auto;padding:12px 24px;border:1px solid #e84d6d;border-radius:10px;background:#7b1932;color:white;cursor:pointer}html[data-runtime-error=true] .ark-runtime-error{display:block}</style>
+    <section class="ark-runtime-error" role="alert"><h1>Não foi possível carregar o CINE ARK</h1><p>Verifique sua conexão e tente novamente.</p><button onclick="location.reload()">Tentar novamente</button></section>
+    <noscript><p style="padding:40px;text-align:center;color:white">Ative o JavaScript para abrir o CINE ARK.</p></noscript>
     <div id="blood-container" class="blood-screen"></div>
 
     <div id="app" v-cloak :class="{'ark-motion-off': !ambientMotion, 'ark-runes-off': ambientLevel === 'off'}">
@@ -453,7 +457,7 @@
                     </div>
                 </template>
                 <div v-else class="ark-paged-slot"><img v-if="!readerFailedPages[readerPage]" :key="activeChapter.id + ':' + readerPage + ':' + (readerRetries[readerPage] || 0)" :src="pageURLs[readerPage]" :data-chapter="activeChapter.id" :data-page-index="readerPage" @load="readerPageReady($event, Number($event.target.dataset.pageIndex))" :alt="'Página ' + (readerPage + 1)" @error="readerPageFailed(readerPage)"><div v-else class="ark-page-retry" role="status"><span>Página {{ readerPage+1 }} indisponível</span><button @click.stop="retryReaderPage(readerPage)" class="ark-btn-secondary">Tentar novamente</button></div></div>
-                <section v-if="readerEndReached" class="ark-reader-end" aria-label="Fim do capítulo"><i class="fa-solid fa-check" aria-hidden="true"></i><h2>Capítulo concluído</h2><p>{{ readingWork.title }} · Capítulo {{ activeChapter.number }}</p><button v-if="readerCanNext" @click.stop="navigateReaderChapter(1)" :disabled="readerBusy || readerNavigating" class="ark-btn-primary">{{ readerNavigating ? 'Abrindo...' : 'Ler próximo capítulo' }}<i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><p v-else>Você chegou ao último capítulo disponível nesta edição.</p><div class="ark-chapter-reactions" @click.stop><h3>Como foi este capítulo?</h3><div><button v-for="reaction in reactionOptions" :key="reaction.id" @click="cancelReaderMarathon(); reactToChapter(reaction.id)" :aria-pressed="activeReaction===reaction.id" :class="{'is-selected':activeReaction===reaction.id}" :disabled="communityBusy || communityLoading"><i :class="['fa-solid',reaction.icon]" aria-hidden="true"></i>{{ reaction.label }}</button></div><small>Sua reação pessoal · {{ userSession ? 'salva na conta' : 'salva neste navegador' }}</small><p v-if="communityMessage" role="status">{{ communityMessage }}</p></div><div v-if="readerCanNext" class="ark-marathon-panel" @click.stop><label><input v-model="readerMarathon" type="checkbox" @change="saveReaderPreferences(false)">Modo maratona</label><p v-if="readerMarathonRemaining" role="status">Próximo capítulo em {{ readerMarathonRemaining }} segundos</p><button v-if="readerMarathonRemaining" @click="cancelReaderMarathon" class="ark-btn-secondary">Cancelar contagem</button><button v-else-if="readerMarathon" @click="readerMarathonCancelled=false; startReaderMarathon(true)" class="ark-btn-secondary">Iniciar contagem de 8 segundos</button></div><button @click.stop="closeReader" class="ark-btn-ghost">Voltar aos capítulos</button></section>
+                <section v-if="readerEndReached" class="ark-reader-end" aria-label="Fim do capítulo"><i class="fa-solid fa-check" aria-hidden="true"></i><h2>Capítulo concluído</h2><p>{{ readingWork.title }} · Capítulo {{ activeChapter.number }}</p><button v-if="readerCanNext" @click.stop="navigateReaderChapter(1)" :disabled="readerBusy || readerNavigating" class="ark-btn-primary">{{ readerNavigating ? 'Abrindo...' : 'Ler próximo capítulo' }}<i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><p v-else>Você chegou ao último capítulo disponível nesta edição.</p><div class="ark-chapter-reactions" @click.stop><h3>Como foi este capítulo?</h3><div><button v-for="reaction in reactionOptions" :key="reaction.id" @click="cancelReaderMarathon(); reactToChapter(reaction.id)" :aria-pressed="activeReaction===reaction.id" :class="{'is-selected':activeReaction===reaction.id}" :disabled="communityBusy || communityLoading"><i :class="['fa-solid',reaction.icon]" aria-hidden="true"></i>{{ reaction.label }}</button></div><small>Sua reação pessoal · {{ userSession ? 'salva na conta' : 'salva neste navegador' }}</small><p v-if="activeReactionMessage" role="status">{{ activeReactionMessage }}</p><p v-else-if="communityLoading" role="status">Carregando sua reação...</p></div><div v-if="readerCanNext" class="ark-marathon-panel" @click.stop><label><input v-model="readerMarathon" type="checkbox" @change="saveReaderPreferences(false)">Modo maratona</label><p v-if="readerMarathonRemaining" role="status">Próximo capítulo em {{ readerMarathonRemaining }} segundos</p><button v-if="readerMarathonRemaining" @click="cancelReaderMarathon" class="ark-btn-secondary">Cancelar contagem</button><button v-else-if="readerMarathon" @click="readerMarathonCancelled=false; startReaderMarathon(true)" class="ark-btn-secondary">Iniciar contagem de 8 segundos</button></div><button @click.stop="closeReader" class="ark-btn-ghost">Voltar aos capítulos</button></section>
             </div>
             <aside v-if="pageTranslationOpen" class="ark-page-translation" aria-labelledby="page-translation-title" :aria-busy="pageTranslationBusy">
                 <div class="ark-translation-heading"><h2 id="page-translation-title">Tradução · Página {{ pageTranslationIndex + 1 }}</h2><button @click="cancelPageTranslation" class="ark-btn-ghost" aria-label="Fechar tradução">Fechar</button></div>
@@ -471,7 +475,7 @@
             <footer class="ark-reader-navigation">
                 <div class="ark-reader-progress-track" aria-hidden="true"><span :style="{ width: readerPercentage + '%' }"></span></div>
                 <button :disabled="readerBusy || readerNavigating || !readerCanPrevious" @click="navigateReaderChapter(-1)" class="ark-reader-prev"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span>Cap. anterior</span></button>
-                <div class="ark-reader-page-controls"><div :class="['ark-reader-page-navigation', { 'is-rtl': readingMode === 'paged' && readingDirection === 'rtl' }]"><button @click="jumpReaderPage(readerPage - 1)" :disabled="readerPage <= 0 || readerBusy" aria-label="Página anterior"><i :class="readingMode === 'paged' && readingDirection === 'rtl' ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i></button><label>Página <input type="number" :value="readerPage + 1" @change="jumpReaderPage(Number($event.target.value) - 1)" min="1" :max="pageURLs.length" aria-label="Ir para página"> <span>/ {{ pageURLs.length }}</span></label><button @click="jumpReaderPage(readerPage + 1)" :disabled="readerPage >= pageURLs.length - 1 || readerBusy" aria-label="Próxima página"><i :class="readingMode === 'paged' && readingDirection === 'rtl' ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right'" aria-hidden="true"></i></button></div><input type="range" min="0" :max="Math.max(0, pageURLs.length - 1)" :value="readerPage" @change="jumpReaderPage(Number($event.target.value))" :disabled="readerBusy || !pageURLs.length" aria-label="Avançar pela página do capítulo"></div>
+                <div class="ark-reader-page-controls"><button v-if="readerPage === pageURLs.length-1 && readerLoadedPages[readerPage]" @click="revealChapterReactions" class="ark-reader-react-link"><i class="fa-regular fa-face-smile" aria-hidden="true"></i>Reagir ao capítulo</button><div :class="['ark-reader-page-navigation', { 'is-rtl': readingMode === 'paged' && readingDirection === 'rtl' }]"><button @click="jumpReaderPage(readerPage - 1)" :disabled="readerPage <= 0 || readerBusy" aria-label="Página anterior"><i :class="readingMode === 'paged' && readingDirection === 'rtl' ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-left'" aria-hidden="true"></i></button><label>Página <input type="number" :value="readerPage + 1" @change="jumpReaderPage(Number($event.target.value) - 1)" min="1" :max="pageURLs.length" aria-label="Ir para página"> <span>/ {{ pageURLs.length }}</span></label><button @click="jumpReaderPage(readerPage + 1)" :disabled="readerPage >= pageURLs.length - 1 || readerBusy" aria-label="Próxima página"><i :class="readingMode === 'paged' && readingDirection === 'rtl' ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right'" aria-hidden="true"></i></button></div><input type="range" min="0" :max="Math.max(0, pageURLs.length - 1)" :value="readerPage" @change="jumpReaderPage(Number($event.target.value))" :disabled="readerBusy || !pageURLs.length" aria-label="Avançar pela página do capítulo"></div>
                 <button :disabled="readerBusy || readerNavigating || !readerCanNext" @click="navigateReaderChapter(1)" class="ark-btn-primary ark-reader-next"><span>{{ readerNavigating ? 'Abrindo…' : 'Próximo cap.' }}</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
             </footer>
         </section>

@@ -398,19 +398,20 @@
             <button v-if="readerFocus" @click="readerFocus = false" class="ark-reader-restore"><i class="fa-solid fa-eye" aria-hidden="true"></i>Mostrar controles</button>
             <header class="ark-toolbar ark-reader-header">
                 <div class="ark-reader-topline">
-                    <button @click="closeReader" class="ark-btn-ghost ark-reader-back" aria-label="Voltar aos detalhes da obra"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+                    <button @click="closeReader" class="ark-btn-ghost ark-reader-back" aria-label="Voltar aos cap&#237;tulos"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
                     <div class="ark-reader-heading"><strong>{{ readingWork.title }}</strong><span>Capítulo {{ activeChapter.number }}<template v-if="activeChapter.title"> · {{ activeChapter.title }}</template></span></div>
                     <div class="ark-reader-header-actions"><button @click="toggleReaderDrawer" :aria-expanded="readerDrawerOpen" aria-controls="reader-chapter-drawer" :class="{ 'ark-btn-primary': readerDrawerOpen }"><i class="fa-solid fa-list" aria-hidden="true"></i><span>Capítulos</span></button><button @click="readerFocus = true; readerDrawerOpen = false" title="Ler sem distrações"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i><span>Foco</span></button><button @click="readerFullscreen" aria-label="Tela cheia"><i class="fa-solid fa-expand" aria-hidden="true"></i></button></div>
                 </div>
-                <div class="ark-reader-settings">
+                <details class="ark-reader-preferences"><summary><i class="fa-solid fa-sliders" aria-hidden="true"></i>Ajustes de leitura</summary><div class="ark-reader-settings">
                 <label>Leitura<select v-model="readingMode" @change="saveReaderPreferences"><option value="vertical">Rolagem vertical</option><option value="paged">Página por página</option></select></label>
                 <label>Largura<select v-model="readerWidth" @change="saveReaderPreferences"><option value="680">Compacta</option><option value="900">Confortável</option><option value="1100">Ampla</option><option value="full">Tela inteira</option></select></label>
                 <label v-if="readingMode === 'paged'">Direção<select v-model="readingDirection" @change="saveReaderPreferences"><option value="ltr">Esquerda → direita</option><option value="rtl">Direita → esquerda</option></select></label>
                 <label>Brilho<input v-model.number="readerBrightness" @change="saveReaderPreferences" type="range" min="50" max="100" aria-label="Brilho das páginas"></label><label>Espaçamento<select v-model.number="readerSpacing" @change="saveReaderPreferences"><option :value="0">Sem espaço</option><option :value="8">Pequeno</option><option :value="16">Médio</option><option :value="24">Grande</option></select></label>
                 <button v-if="activeChapter.source === 'remote'" @click="translateReaderPage" :disabled="pageTranslationBusy || readerBusy" class="ark-btn-secondary"><i class="fa-solid fa-language" aria-hidden="true"></i>{{ pageTranslationBusy ? 'Traduzindo…' : 'Traduzir página ' + (readerPage + 1) }}</button>
                 <a v-if="activeChapter.source === 'mangadex'" :href="'https://mangadex.org/chapter/' + activeChapter.id" target="_blank" rel="noopener noreferrer" class="ark-source-link">MangaDex ↗</a>
+
+                </div></details>
                 <span class="ark-sync-state" role="status">{{ activeChapter.source === 'mangadex' ? (dexProgressSync === 'saved' ? 'Progresso salvo na conta' : dexProgressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente') : activeChapter.source === 'local' ? 'Leitura de cópia local' : progressSync === 'saved' ? 'Progresso salvo na conta' : progressSync === 'saving' ? 'Salvando progresso…' : 'Progresso salvo neste dispositivo; sincronização pendente' }}</span>
-                </div>
             </header>
             <div v-if="readerError" role="alert" class="ark-error">{{ readerError }} <button v-if="['remote', 'mangadex'].includes(activeChapter.source)" @click="readerError = ''; refreshSignedPages()">Recarregar páginas</button></div>
             <div class="ark-reader-content">

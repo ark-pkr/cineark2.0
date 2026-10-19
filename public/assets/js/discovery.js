@@ -19,7 +19,7 @@ window.discoveryMixin = {
     computed: {
         availableGenres() { return [...new Set(this.catalog.flatMap(item=>item.genres||[]))].sort((a,b)=>a.localeCompare(b,'pt-BR')); },
         availableTypes() { return [...new Set(this.catalog.map(item=>item.type))].filter(Boolean).sort(); },
-        ambientOpacity() { return ({off:0,subtle:.25,medium:.55,vivid:1}[this.ambientLevel] ?? 1)*(this.activeChapter?(this.readerFocus?0:.25):1); },
+        ambientOpacity() { return ({off:0,subtle:.25,medium:.55,vivid:1}[this.ambientLevel] ?? 1)*(this.activeChapter?(this.readerFocus?0:.25):this.readingWork?.id ? .45:1); },
         relatedWorks() { return window.ArkDiscovery.related(this.readingWork,this.catalog); },
         favoriteWorks() { return this.catalog.filter(item=>this.personalLibrary[item.id]?.favorite); },
         updateEntries() { return this.favoriteWorks.map(work=>({work,...this.updates[work.id]})).filter(row=>row.checkedAt); },

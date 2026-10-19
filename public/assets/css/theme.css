@@ -514,6 +514,48 @@ body:has(.ark-overlay) { overflow:hidden; }
 .ark-shelf,.ark-catalog-grid>.movie-card { content-visibility:auto; contain-intrinsic-size:auto 350px; }
 @media(max-width:600px) { .ark-profile-panel { padding:24px 18px; } .ark-profile-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .ark-history-row { align-items:start; } .ark-history-row button { font-size:10px; padding:8px; } }
 
+/* Reading hierarchy: quiet surfaces, one clear primary action. */
+.ark-chapter-focused { --ark-muted:#bdaeb4; }
+.ark-chapters-heading h2 { overflow-wrap:anywhere; letter-spacing:-.035em; }
+.ark-chapter-focused .ark-chapter { background:#131013; border-color:#ffffff0b; box-shadow:none; gap:10px; }
+.ark-chapter-focused .ark-chapter-open { min-height:48px; padding:10px 8px; line-height:1.65; font-size:13px; }
+.ark-chapter-focused .ark-chapter-open small { color:#b6a5ae; font-size:11px; }
+.ark-chapter-focused .ark-chapter:has(.ark-read-badge) { background:#100e10; }
+.ark-chapter-focused .ark-read-badge { color:#c4b4bc; background:#ffffff06; border-color:#ffffff12; white-space:nowrap; }
+.ark-chapter-focused .ark-source-tabs { padding:4px; background:#100c10; border-color:#ffffff16; }
+.ark-chapter-focused .ark-work-details { border-color:#ffffff12; background:#100d10; }
+.ark-chapter-focused details>summary { min-height:44px; display:flex; align-items:center; gap:10px; cursor:pointer; }
+.ark-chapter-focused details>summary::before { content:'+'; color:#ee7186; font-size:18px; }
+.ark-chapter-focused details[open]>summary::before { content:'\2212'; }
+.ark-chapter-focused details>summary::-webkit-details-marker { display:none; }
+.ark-chapter-focused .ark-work-chapter-tools input { width:100%; min-width:0; }
+.ark-reader-preferences { width:100%; min-width:0; }
+.ark-reader-preferences>summary { display:flex; align-items:center; gap:9px; width:fit-content; min-height:36px; padding:6px 10px; border-radius:8px; color:#cdbbc3; font-size:11px; cursor:pointer; list-style:none; }
+.ark-reader-preferences>summary::-webkit-details-marker { display:none; }
+.ark-reader-preferences>summary::after { content:'+'; margin-left:12px; color:#f28597; }
+.ark-reader-preferences[open]>summary::after { content:'\2212'; }
+.ark-reader-preferences>summary:hover { background:#ffffff08; }
+.ark-reader-preferences>summary:focus-visible,.ark-chapter-focused summary:focus-visible { outline:2px solid #ffb6c0; outline-offset:3px; }
+.ark-reader-preferences[open] .ark-reader-settings { max-height:34dvh; overflow:auto; padding-bottom:8px; }
+.ark-reader .ark-reader-header { flex-shrink:0; padding-top:max(10px,env(safe-area-inset-top)); }
+.ark-reader .ark-reader-heading { min-width:0; }
+.ark-reader .ark-reader-heading strong,.ark-reader .ark-reader-heading span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ark-reader .ark-reader-footer { flex-shrink:0; }
+.ark-reader .ark-sync-state { min-height:18px; line-height:1.5; }
+@media(max-width:600px) {
+  .ark-chapter-focused .ark-work-chapter-tools { display:grid; grid-template-columns:minmax(0,1fr); }
+  .ark-chapter-focused .ark-work-chapter-tools label { min-width:0; }
+  .ark-chapter-focused .ark-chapter { flex-wrap:nowrap; padding:5px 8px; }
+  .ark-chapter-focused .ark-chapter-open { font-size:12px; }
+  .ark-chapter-focused .ark-chapter .ark-btn-danger { font-size:0; min-width:44px; min-height:44px; padding:10px; }
+  .ark-chapter-focused .ark-chapter .ark-btn-danger i { font-size:14px; }
+  .ark-reader .ark-reader-header-actions button { min-width:44px; min-height:44px; }
+  .ark-reader .ark-reader-preferences>summary { min-height:44px; }
+  .ark-reader .ark-reader-settings label { flex-direction:column; align-items:stretch; font-size:11px; }
+  .ark-reader .ark-reader-settings select { min-height:44px; font-size:12px; }
+  .ark-reader-settings input[type=range] { min-height:44px; width:100%; }
+  .ark-reader-preferences[open] .ark-reader-settings { max-height:30dvh; }
+}
 .ark-social-auth { margin-top:24px; }
 .ark-overlay .ark-google-button { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; min-height:46px; background:#fff; border:1px solid #dadce0; border-radius:10px; color:#202124; font-weight:600; }
 .ark-overlay .ark-google-button:hover { background:#f1f3f4; }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v32-folders';
+const CACHE_NAME = 'cine-ark-v33-reading-polish';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
 const ASSETS = ['./index.html','./assets/js/reader.js','./assets/js/reader-controls.js','./assets/js/personal-library.js','./assets/js/discovery.js','./assets/js/external-progress.js',

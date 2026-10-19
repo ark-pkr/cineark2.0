@@ -128,7 +128,7 @@ function browser(fetcher) {
     const context = { window: { location: { hostname: 'cine-ark.example' } }, AbortController, setTimeout: () => 0, clearTimeout() {},
         _supabase: { auth: { getSession: async () => ({ data: { session: { access_token: 'jwt', user: { id: user } } } }) } }, fetch: fetcher,
         localStorage: { getItem: key => storage.get(key), setItem: (key, data) => storage.set(key, data) } };
-    vm.createContext(context); vm.runInContext(fs.readFileSync('page-translation.js', 'utf8'), context);
+    vm.createContext(context); vm.runInContext(fs.readFileSync('public/assets/js/page-translation.js', 'utf8'), context);
     const app = { ...context.window.pageTranslationMixin.data(), ...context.window.pageTranslationMixin.methods,
         userSession: { user: { id: user } }, activeChapter: { id: chapter, source: 'remote' }, readerPage: 3, readingDirection: 'rtl' };
     return { app, storage };

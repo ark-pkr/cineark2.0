@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 function setup() {
     const context = { window: {} }; vm.createContext(context);
-    vm.runInContext(fs.readFileSync('continue-reading.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('public/assets/js/continue-reading.js', 'utf8'), context);
     const mixin = context.window.continueReadingMixin;
     const app = { ...mixin.data(), ...mixin.methods, userSession: { user: { id: 'a' } },
         catalog: [{ id: 'work', title: 'Book', type: 'Mangá' }], readingProgress: {}, chapters: [], dexChapters: [] };

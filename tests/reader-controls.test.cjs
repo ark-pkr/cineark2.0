@@ -7,7 +7,7 @@ function setup() {
     const context = { window: {}, indexedDB: { open: () => ({}) }, AbortController, setTimeout: () => 0, clearTimeout() {},
         localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) } };
     vm.createContext(context);
-    for (const file of ['reader.js', 'mangadex.js', 'reader-controls.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+    for (const file of ['reader.js', 'mangadex.js', 'reader-controls.js']) vm.runInContext(fs.readFileSync('public/assets/js/' + file, 'utf8'), context);
     const mixins = [context.window.readerMixin, context.window.mangadexMixin, context.window.readerControlsMixin];
     const app = { userSession: { user: { id: 'a' } }, readingWork: { id: 'work' }, $nextTick: async () => {} };
     for (const mixin of mixins) Object.assign(app, mixin.data(), mixin.methods);

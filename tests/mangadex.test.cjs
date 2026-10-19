@@ -91,7 +91,7 @@ function browser(fetcher = async () => { throw new Error('Unexpected request'); 
         URL, AbortController, DOMException, fetch: fetcher, setTimeout: () => 0, clearTimeout() {}, indexedDB: { open: () => ({}) },
         localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) }, document: { body: { style: {} } } };
     vm.createContext(context);
-    for (const file of ['reader.js', 'mangadex.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+    for (const file of ['reader.js', 'mangadex.js']) vm.runInContext(fs.readFileSync('public/assets/js/' + file, 'utf8'), context);
     const app = { ...context.window.readerMixin.data(), ...context.window.mangadexMixin.data(),
         ...context.window.readerMixin.methods, ...context.window.mangadexMixin.methods,
         userSession: { user: { id: 'reader-a' } }, readingWork: { id: 'work' } };

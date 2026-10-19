@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
 function setup(client={}) {
  const c={window:{},_supabase:client,setTimeout:()=>0,clearTimeout(){}};vm.createContext(c);
- vm.runInContext(fs.readFileSync('personal-library.js','utf8'),c);
+ vm.runInContext(fs.readFileSync('public/assets/js/personal-library.js','utf8'),c);
  const mixin=c.window.personalLibraryMixin;
  const app={...mixin.data(),...mixin.methods,userSession:{user:{id:'a'}},readingWork:{id:'w'},pageURLs:[],openAuth(view){this.opened=view;}};
  for(const [key,fn] of Object.entries(mixin.computed))Object.defineProperty(app,key,{get:()=>fn.call(app)});
@@ -41,18 +41,18 @@ test('chapter search supports decimal numbers, groups and reverse order without 
 });
 test('reader comfort settings restore and persist together',()=>{
  const storage=new Map([['ark-reader-preferences',JSON.stringify({width:'1100',brightness:70,spacing:16,mode:'paged',direction:'rtl'})]]);
- const c={window:{},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)}};vm.createContext(c);vm.runInContext(fs.readFileSync('reader-controls.js','utf8'),c);
+ const c={window:{},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)}};vm.createContext(c);vm.runInContext(fs.readFileSync('public/assets/js/reader-controls.js','utf8'),c);
  const app={...c.window.readerControlsMixin.data(),...c.window.readerControlsMixin.methods,changeReadingMode(){}};
  assert.equal(app.readerBrightness,70);assert.equal(app.readingMode,'paged');app.readerSpacing=24;app.saveReaderPreferences();
  assert.equal(JSON.parse(storage.get('ark-reader-preferences')).spacing,24);
 });
 test('password recovery requests an email without requiring a password',async()=>{
  let sent;const c={window:{location:{href:'https://cineark.com.br/'}},URL,_supabase:{auth:{resetPasswordForEmail:async(email,options)=>{sent={email,options};return{};}}}};
- vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);const app={...c.window.authMixin.data(),...c.window.authMixin.methods};
+ vm.createContext(c);vm.runInContext(fs.readFileSync('public/assets/js/auth.js','utf8'),c);const app={...c.window.authMixin.data(),...c.window.authMixin.methods};
  app.authView='forgot';app.authEmail='reader@example.com';await app.submitAuth();assert.equal(sent.email,'reader@example.com');assert.equal(sent.options.redirectTo,'https://cineark.com.br/');assert.equal(app.authError,'');
 });
 test('password reset validates confirmation before calling the auth API',async()=>{
- const c={window:{},_supabase:{auth:{updateUser(){throw Error('must not call');}}}};vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);
+ const c={window:{},_supabase:{auth:{updateUser(){throw Error('must not call');}}}};vm.createContext(c);vm.runInContext(fs.readFileSync('public/assets/js/auth.js','utf8'),c);
  const app={...c.window.authMixin.data(),...c.window.authMixin.methods,userSession:{user:{id:'a'}}};app.authView='reset';app.authPassword='long-password';app.authConfirm='different';await app.submitAuth();assert.match(app.authError,/confirme/);
 });
 test('refresh accepts newer server shelves instead of keeping stale cached status',async()=>{
@@ -69,18 +69,18 @@ test('late personal library response cannot populate a different signed-in accou
 test('Google login uses OAuth and returns to the current site without sending a password',async()=>{
  let request;const c={window:{CINE_ARK_CONFIG:{supabaseUrl:'https://example.supabase.co',supabaseAnonKey:'public'},location:{href:'https://cineark.com.br/#catalogo'}},URL,
  fetch:async()=>({ok:true,json:async()=>({external:{google:true}})}),_supabase:{auth:{signInWithOAuth:async args=>{request=args;return{};}}}};
- vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);
+ vm.createContext(c);vm.runInContext(fs.readFileSync('public/assets/js/auth.js','utf8'),c);
  const app={...c.window.authMixin.data(),...c.window.authMixin.methods,authReady:true};await app.signInWithGoogle();
  assert.equal(request.provider,'google');assert.equal(request.options.redirectTo,'https://cineark.com.br/');assert.equal('password' in request,false);assert.equal(app.authBusy,false);
 });
 test('disabled Google provider reports configuration failure without navigating away',async()=>{
  const c={window:{CINE_ARK_CONFIG:{supabaseUrl:'https://example.supabase.co',supabaseAnonKey:'public'}},URL,
  fetch:async()=>({ok:true,json:async()=>({external:{google:false}})}),_supabase:{auth:{signInWithOAuth(){throw Error('must not redirect');}}}};
- vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);const app={...c.window.authMixin.data(),...c.window.authMixin.methods,authReady:true};
+ vm.createContext(c);vm.runInContext(fs.readFileSync('public/assets/js/auth.js','utf8'),c);const app={...c.window.authMixin.data(),...c.window.authMixin.methods,authReady:true};
  await app.signInWithGoogle();assert.match(app.authError,/habilitado/);assert.equal(app.authBusy,false);
 });
 test('splash appears once per tab and stays hidden after authentication returns',()=>{
- const storage=new Map();const load=href=>{const c={window:{location:{href}},URL,URLSearchParams,sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)}};vm.createContext(c);vm.runInContext(fs.readFileSync('auth.js','utf8'),c);return c.window.ArkSplash;};
+ const storage=new Map();const load=href=>{const c={window:{location:{href}},URL,URLSearchParams,sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)}};vm.createContext(c);vm.runInContext(fs.readFileSync('public/assets/js/auth.js','utf8'),c);return c.window.ArkSplash;};
  const first=load('https://cineark.com.br/');assert.equal(first.shouldShow(),true);first.dismiss();assert.equal(load('https://cineark.com.br/').shouldShow(),false);
  storage.clear();assert.equal(load('https://cineark.com.br/#access_token=example&type=signup').shouldShow(),false);
  assert.equal(load('https://cineark.com.br/?code=example').shouldShow(),false);

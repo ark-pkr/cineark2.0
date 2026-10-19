@@ -37,7 +37,7 @@ window.discoveryMixin = {
                 if(window.location.pathname+window.location.hash!==path) window.history.pushState({arkWork:work.slug},'',path);
                 document.title=work.title+' | CINE ARK';
             } else if(!work && this.currentWorkSlug()) {
-                window.history.pushState({},'','/'); document.title='CINE ARK | Mangás e manhwas';
+                window.history.pushState({},'',this.homeRoute()); document.title='CINE ARK | Mangás e manhwas';
             }
         }
     },
@@ -55,7 +55,12 @@ window.discoveryMixin = {
             const path=window.location.hash.startsWith('#/obra/')?window.location.hash.slice(1):window.location.pathname;
             const match=path.match(/^\/obra\/([a-z0-9-]{1,180})\/?$/); return match?.[1] || '';
         },
-        workRoute(work) { return (['localhost','127.0.0.1'].includes(window.location.hostname)?'/#':'')+'/obra/'+encodeURIComponent(work.slug || work.id); },
+        homeRoute() {
+            if(['localhost','127.0.0.1'].includes(window.location.hostname) && !window.location.pathname.startsWith('/obra/'))
+                return new URL('.',window.location.href || 'http://localhost'+window.location.pathname).pathname;
+            return '/';
+        },
+        workRoute(work) { return (['localhost','127.0.0.1'].includes(window.location.hostname)?this.homeRoute()+'#':'')+'/obra/'+encodeURIComponent(work.slug || work.id); },
         async restoreWorkRoute() {
             if(this._routing)return;
             let slug=this.currentWorkSlug();

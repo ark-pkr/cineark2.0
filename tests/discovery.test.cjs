@@ -4,7 +4,7 @@ const fs=require('node:fs'),vm=require('node:vm');
 function setup() {
  const storage=new Map();const context={window:{location:{hostname:'cineark.com.br',origin:'https://cineark.com.br',pathname:'/',hash:''}},URL,AbortController,
   localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},setTimeout,clearTimeout,document:{querySelector:()=>null},navigator:{}};
- vm.createContext(context);vm.runInContext(fs.readFileSync('discovery.js','utf8'),context);
+ vm.createContext(context);vm.runInContext(fs.readFileSync('public/assets/js/discovery.js','utf8'),context);
  const mixin=context.window.discoveryMixin;
  const app={...mixin.data(),...mixin.methods,catalog:[],personalLibrary:{},readingProgress:{},userSession:{user:{id:'a'}},localSearch:'',
   languageLabel:code=>code==='pt-br'?'Português Brasil':code,activeChapter:null};
@@ -56,6 +56,8 @@ test('local work links use a hash while public links use permanent routes',()=>{
  const {app,context}=setup();assert.equal(app.workRoute({slug:'solo-leveling'}),'/obra/solo-leveling');
  context.window.location.hostname='127.0.0.1';assert.equal(app.workRoute({slug:'solo-leveling'}),'/#/obra/solo-leveling');
  context.window.location.hash='#/obra/solo-leveling';assert.equal(app.currentWorkSlug(),'solo-leveling');
+ context.window.location.pathname='/public/index.html';context.window.location.href='http://127.0.0.1:5500/public/index.html';
+ assert.equal(app.workRoute({slug:'solo-leveling'}),'/public/#/obra/solo-leveling');assert.equal(app.homeRoute(),'/public/');
 });
 test('public work pages render share metadata and escape untrusted catalog fields',async()=>{
  const {renderWorkPage}=await import('../scripts/work-page.mjs');

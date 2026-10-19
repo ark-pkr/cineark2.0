@@ -10,7 +10,7 @@ window.externalProgressMixin = {
         dexProgressFailure(error) {
             this.dexProgressSync = 'pending';
             this.dexProgressError = ['PGRST205', '42P01'].includes(error?.code)
-                ? 'A sincronização precisa ser ativada no banco. Execute supabase/mangadex-progress.sql no SQL Editor.'
+                ? 'A sincronização precisa ser ativada no banco. Execute supabase/sql/mangadex-progress.sql no SQL Editor.'
                 : 'Progresso salvo neste dispositivo. A sincronização será tentada ao reconectar ou reabrir a obra.';
         },
         loadDexProgress() {

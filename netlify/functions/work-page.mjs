@@ -5,7 +5,7 @@ import {createWorkPageHandler} from '../../scripts/work-page.mjs';
 let handler;
 export default async request=>{
     if(!handler) {
-        const context={window:{}};vm.runInNewContext(await readFile(resolve(process.cwd(),'config.js'),'utf8'),context);
+        const context={window:{}};vm.runInNewContext(await readFile(resolve(process.cwd(),'public/assets/js/config.js'),'utf8'),context);
         handler=createWorkPageHandler({settings:context.window.CINE_ARK_CONFIG,loadTemplate:()=>readFile(resolve(process.cwd(),'dist/index.html'),'utf8')});
     }
     return handler(request);

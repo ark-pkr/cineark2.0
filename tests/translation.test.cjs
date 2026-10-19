@@ -6,7 +6,7 @@ function setup(fetcher) {
     const saved = new Map();
     const context = { window: {}, URLSearchParams, AbortController, DOMException, TextEncoder, fetch: fetcher,
         setTimeout: () => 0, clearTimeout() {}, localStorage: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value) } };
-    vm.createContext(context); vm.runInContext(fs.readFileSync('translation.js', 'utf8'), context);
+    vm.createContext(context); vm.runInContext(fs.readFileSync('public/assets/js/translation.js', 'utf8'), context);
     return { api: context.window.ArkTranslation, saved };
 }
 test('UTF-8 chunks stay below provider byte limit and preserve the entire original', () => {

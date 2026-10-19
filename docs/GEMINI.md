@@ -9,7 +9,7 @@ No Render, abra o serviço **cine-ark → Environment → Add Environment Variab
 - Nome: `GEMINI_API_KEY`
 - Valor: sua chave do Google AI Studio, inserida diretamente no painel do Render.
 
-Salve a alteração com uma nova implantação. Nunca cole a chave no chat, no `config.js` ou no GitHub. O modelo padrão é `gemini-3.5-flash-lite`; `GEMINI_MODEL` permite selecionar outro modelo compatível com visão, JSON estruturado e `generateContent`. O código não altera configurações existentes do Render ao adicionar esta variável.
+Salve a alteração com uma nova implantação. Nunca cole a chave no chat, no `public/assets/js/config.js` ou no GitHub. O modelo padrão é `gemini-3.5-flash-lite`; `GEMINI_MODEL` permite selecionar outro modelo compatível com visão, JSON estruturado e `generateContent`. O código não altera configurações existentes do Render ao adicionar esta variável.
 
 Entre na sua conta, abra um capítulo enviado à biblioteca e clique em **Traduzir página**. Confira a tradução e o original. Uma chamada real à API ainda precisa ser validada depois da configuração da chave. Não há chave Gemini disponível nesta sessão e nenhum teste pago foi executado.
 

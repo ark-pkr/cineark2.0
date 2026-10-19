@@ -2,11 +2,11 @@
 
 ## Situação atual
 
-Os arquivos estão preparados localmente. Nenhum SQL foi executado no projeto remoto e o bucket ainda não foi criado por esta implementação. A chave pública foi centralizada em `config.js`; credenciais administrativas nunca devem ser incluídas nesse arquivo.
+Os arquivos estão preparados localmente. Nenhum SQL foi executado no projeto remoto e o bucket ainda não foi criado por esta implementação. A chave pública foi centralizada em `public/assets/js/config.js`; credenciais administrativas nunca devem ser incluídas nesse arquivo.
 
 Conta administrativa solicitada: **mrogerio4578@gmail.com**. O endereço publicado do site ainda não foi informado.
 
-Projeto novo conectado em `config.js`: `hhbnjeoasbekqqjfxeqh`. A consulta pública confirmou autenticação por e-mail habilitada, cadastro permitido e confirmação de e-mail exigida. A consulta do catálogo retornou `PGRST205`: a tabela ainda não está disponível na API. Nenhum SQL administrativo foi aplicado nesta sessão.
+Projeto novo conectado em `public/assets/js/config.js`: `hhbnjeoasbekqqjfxeqh`. A consulta pública confirmou autenticação por e-mail habilitada, cadastro permitido e confirmação de e-mail exigida. A consulta do catálogo retornou `PGRST205`: a tabela ainda não está disponível na API. Nenhum SQL administrativo foi aplicado nesta sessão.
 
 Para instalar o banco novo em uma única operação, execute **`setup-new-project.sql`** no [SQL Editor do projeto novo](https://supabase.com/dashboard/project/hhbnjeoasbekqqjfxeqh/sql/new). Ele reúne catálogo, permissões, capítulos, progresso e bucket privado. Depois, cadastre e confirme a conta administrativa e execute `set-administrator.sql`. A chave pública fornecida conecta o site, mas não autoriza criação de tabelas ou promoção de administradores.
 
@@ -16,11 +16,11 @@ Para instalar o banco novo em uma única operação, execute **`setup-new-projec
 
 Crie o projeto na sua conta Supabase. Nenhum projeto novo foi criado automaticamente por estes arquivos. Execute `create-catalog.sql` antes dos passos abaixo: ele cria a tabela base que já existia no projeto anterior.
 
-Depois de criar o projeto, substitua apenas `supabaseUrl` e `supabaseAnonKey` em `config.js` pelos valores públicos do novo projeto (URL e chave publishable/anon). Não utilize `service_role`, secret key ou senha do banco no site. O projeto anterior e seus dados não são migrados automaticamente.
+Depois de criar o projeto, substitua apenas `supabaseUrl` e `supabaseAnonKey` em `public/assets/js/config.js` pelos valores públicos do novo projeto (URL e chave publishable/anon). Não utilize `service_role`, secret key ou senha do banco no site. O projeto anterior e seus dados não são migrados automaticamente.
 
 ### Ordem das configurações
 
-Conecte a integração Supabase à conta que administra o projeto usado em `config.js`. Confira o projeto antes de executar as alterações. Não crie outro projeto nem troque as chaves sem conferir onde o catálogo atual está salvo.
+Conecte a integração Supabase à conta que administra o projeto usado em `public/assets/js/config.js`. Confira o projeto antes de executar as alterações. Não crie outro projeto nem troque as chaves sem conferir onde o catálogo atual está salvo.
 
 No SQL Editor, execute nesta ordem:
 
@@ -36,7 +36,7 @@ As migrações usam transações. Revise políticas existentes antes de aplicar:
 
 Em **Authentication → Sign In / Providers → Email**, habilite o acesso por e-mail/senha e o cadastro de usuários. Mantenha a confirmação de e-mail habilitada.
 
-Em **Authentication → URL Configuration**, configure o **Site URL** com o endereço publicado e permita a URL exata de retorno usada pelo aplicativo. Por padrão, o aplicativo usa o endereço da própria página, sem parâmetros ou fragmento. Isso mantém caminhos como `/cineark2.0/` e `/index.html` quando necessário. `config.js` permite definir `authRedirectUrl` explicitamente.
+Em **Authentication → URL Configuration**, configure o **Site URL** com o endereço publicado e permita a URL exata de retorno usada pelo aplicativo. Por padrão, o aplicativo usa o endereço da própria página, sem parâmetros ou fragmento. Isso mantém caminhos como `/cineark2.0/` e `/index.html` quando necessário. `public/assets/js/config.js` permite definir `authRedirectUrl` explicitamente.
 
 Para testes locais, adicione `http://localhost:8080/` e, se abrir o arquivo por esse caminho, `http://localhost:8080/index.html` aos redirecionamentos permitidos. A URL de produção será configurada quando for informada. Não use o e-mail como endereço de retorno.
 

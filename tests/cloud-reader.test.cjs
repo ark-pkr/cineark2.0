@@ -31,7 +31,7 @@ function backend({ query = () => ({}), storage = {} } = {}) {
     const client = { from: table => new Query(table), storage: { from: () => bucket } };
     const context = { window: {}, crypto };
     vm.createContext(context);
-    vm.runInContext(fs.readFileSync('cloud-reader.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('public/assets/js/cloud-reader.js', 'utf8'), context);
     return { api: new context.window.ArkCloudReader(client), calls };
 }
 const upload = () => ({ workId: 'work', number: 1, title: 'First',
@@ -119,7 +119,7 @@ function readerSetup() {
         localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
         setTimeout: () => 0, clearTimeout() {}, document: { body: { style: {} } } };
     vm.createContext(context);
-    vm.runInContext(fs.readFileSync('reader.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('public/assets/js/reader.js', 'utf8'), context);
     const app = { ...context.window.readerMixin.data(), ...context.window.readerMixin.methods,
         userSession: { user: { id: 'reader-a' } }, readingWork: { id: 'work' }, activeChapter: { id: 'chapter', source: 'remote' } };
     return { app, storage };

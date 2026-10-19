@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const context = { window: {} };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'config.js'), 'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'assets', 'js', 'config.js'), 'utf8'), context);
 const config = context.window.CINE_ARK_CONFIG;
 const base = new URL(config.supabaseUrl);
 if (base.protocol !== 'https:') throw new Error('Supabase URL must use HTTPS');
@@ -33,4 +33,4 @@ Promise.all([
     check('authentication', '/auth/v1/settings', data => ({ emailEnabled: data.external?.email,
         signupDisabled: data.disable_signup, emailConfirmationRequired: !data.mailer_autoconfirm })),
     check('catalog', '/rest/v1/itens_catalogo?select=id&limit=0', () => ({}))
-]).then(() => console.log('As verificações não alteram dados e não comprovam as políticas de escrita. Use também supabase/verify-configuration.sql.'));
+]).then(() => console.log('As verificações não alteram dados e não comprovam as políticas de escrita. Use também supabase/sql/verify-configuration.sql.'));

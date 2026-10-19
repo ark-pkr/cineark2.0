@@ -8,7 +8,7 @@ function setup() {
     const context = { window: {}, indexedDB: { open: () => ({}) }, setTimeout: () => 0, clearTimeout() {},
         localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) } };
     vm.createContext(context);
-    for (const file of ['reader.js', 'external-progress.js', 'mangadex.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+    for (const file of ['reader.js', 'external-progress.js', 'mangadex.js']) vm.runInContext(fs.readFileSync('public/assets/js/' + file, 'utf8'), context);
     const app = { ...context.window.readerMixin.data(), ...context.window.externalProgressMixin.data(), ...context.window.mangadexMixin.data(),
         ...context.window.readerMixin.methods, ...context.window.externalProgressMixin.methods, ...context.window.mangadexMixin.methods,
         readingWork: { id: 'work', title: 'Book' }, userSession: { user: { id: 'a' } },

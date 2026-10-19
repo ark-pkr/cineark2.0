@@ -39,13 +39,13 @@ A função não foi implantada automaticamente nesta sessão. A configuração e
 
 Para a função **mangadex**, o gateway precisa permitir leitura pública sem JWT, pois as tags de imagem não enviam o cabeçalho de sessão. A configuração é específica a esta função pública de consulta; não desabilite autenticação ou RLS do catálogo. A função não acessa seu banco ou Storage e não utiliza a chave `service_role`. Consulte a [configuração oficial de Edge Functions](https://supabase.com/docs/guides/functions/function-configuration).
 
-O cliente usa `mangadexProxyUrl` em `config.js` quando preenchido. Em localhost, o padrão é `http://127.0.0.1:8787/mangadex`; no site publicado, o padrão é `/mangadex` na mesma origem. Só use endereços HTTPS em um site HTTPS. Para usar outro backend, configure a URL pública correta em `mangadexProxyUrl`.
+O cliente usa `mangadexProxyUrl` em `public/assets/js/config.js` quando preenchido. Em localhost, o padrão é `http://127.0.0.1:8787/mangadex`; no site publicado, o padrão é `/mangadex` na mesma origem. Só use endereços HTTPS em um site HTTPS. Para usar outro backend, configure a URL pública correta em `mangadexProxyUrl`.
 
 ## Progresso e vínculo com a obra
 
 A edição lida, o idioma, o capítulo e a página MangaDex são sincronizados pela conta na tabela `ark_mangadex_progress`. Uma cópia local permanece disponível quando a rede falha. O progresso local das versões anteriores é enviado após a primeira conexão; registros mais antigos não substituem os mais recentes no banco. A seleção sem leitura ainda fica neste navegador; ao usar outro dispositivo, a edição do último capítulo lido é recuperada automaticamente.
 
-Para ativar a sincronização no projeto existente, execute `supabase/mangadex-progress.sql` no SQL Editor. O script cria uma tabela separada dos capítulos enviados, com RLS e políticas que permitem ao leitor acessar somente seu próprio progresso. A tabela não foi criada automaticamente nesta sessão, que não possui acesso administrativo ao Supabase. A consulta final deve retornar quatro políticas com `rls_enabled = true`.
+Para ativar a sincronização no projeto existente, execute `supabase/sql/mangadex-progress.sql` no SQL Editor. O script cria uma tabela separada dos capítulos enviados, com RLS e políticas que permitem ao leitor acessar somente seu próprio progresso. A tabela não foi criada automaticamente nesta sessão, que não possui acesso administrativo ao Supabase. A consulta final deve retornar quatro políticas com `rls_enabled = true`.
 
 Depois de executar o script, recarregue o site e leia algumas páginas. O indicador deve mostrar **Progresso salvo na conta**. Entre na mesma conta em outro navegador/dispositivo, abra a obra e use **MangaDex → Continuar no MangaDex**. Sem a tabela, o site preserva o progresso local e mostra a configuração pendente. Falhas de rede são tentadas novamente ao reconectar ou reabrir a obra.
 

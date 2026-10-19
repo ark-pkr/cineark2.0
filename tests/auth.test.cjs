@@ -10,7 +10,7 @@ function setup(auth = {}) {
         document: { body: { style: {} } }, URL: class extends URL { static revokeObjectURL() {} },
         setTimeout: () => 0, clearTimeout: () => {}, _supabase: { auth } };
     vm.createContext(context);
-    for (const file of ['reader.js', 'auth.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+    for (const file of ['reader.js', 'auth.js']) vm.runInContext(fs.readFileSync('public/assets/js/' + file, 'utf8'), context);
     const app = { userSession: null, ...context.window.readerMixin.data(), ...context.window.authMixin.data(),
         ...context.window.readerMixin.methods, ...context.window.authMixin.methods };
     Object.defineProperty(app, 'isAdmin', { get: () => context.window.authMixin.computed.isAdmin.call(app) });
@@ -82,7 +82,7 @@ test('confirmation redirect preserves deployment subdirectories and removes sess
     const context = { window: { location: { href: 'https://example.com/cineark2.0/?code=private#access_token=private' } } };
     vm.createContext(context);
     context.URL = URL;
-    vm.runInContext(fs.readFileSync('auth.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('public/assets/js/auth.js', 'utf8'), context);
     const redirect = context.window.authMixin.methods.authRedirectURL;
     assert.equal(redirect(), 'https://example.com/cineark2.0/');
     context.window.CINE_ARK_CONFIG = { authRedirectUrl: 'https://example.com/reader/' };
@@ -103,7 +103,7 @@ test('visitors can view work details but must sign in to read chapters', async (
 });
 
 test('inline application JavaScript parses', () => {
-    const html = fs.readFileSync('index.html', 'utf8');
+    const html = fs.readFileSync('public/index.html', 'utf8');
     for (const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)) new vm.Script(match[1]);
     assert.equal(/Arconte|secretClickCount|loginRitual/.test(html), false);
 });

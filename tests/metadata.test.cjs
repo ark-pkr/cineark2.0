@@ -5,7 +5,7 @@ const vm = require('node:vm');
 function setup(fetcher, timers = {}) {
     const context = { window: { ArkTranslation: { toPortuguese: async text => text } }, URL, AbortController, DOMException, fetch: fetcher, setTimeout: () => 0, clearTimeout() {}, ...timers };
     context.crypto=require('node:crypto').webcrypto;
-    vm.createContext(context); vm.runInContext(fs.readFileSync('discovery.js', 'utf8'), context); vm.runInContext(fs.readFileSync('metadata.js', 'utf8'), context);
+    vm.createContext(context); vm.runInContext(fs.readFileSync('public/assets/js/discovery.js', 'utf8'), context); vm.runInContext(fs.readFileSync('public/assets/js/metadata.js', 'utf8'), context);
     const mixin = context.window.metadataMixin;
     return { api: context.window.ArkMetadata,
         app: { ...mixin.data(), ...mixin.methods, isAdmin: true, showModal: true, newItem: { title: 'Berserk' } } };
@@ -26,7 +26,7 @@ test('automatic translation cannot overwrite a synopsis manually edited while wa
     app.newItem.synopsis = 'Original';
     // Reuse the method with a service that resolves only after manual editing.
     const context = { window: { ArkTranslation: { toPortuguese: () => new Promise(resolve => { finish = resolve; }) } }, AbortController };
-    vm.createContext(context); vm.runInContext(fs.readFileSync('metadata.js', 'utf8'), context);
+    vm.createContext(context); vm.runInContext(fs.readFileSync('public/assets/js/metadata.js', 'utf8'), context);
     const pending = context.window.metadataMixin.methods.translateSynopsis.call(app);
     app.newItem.synopsis = 'Minha sinopse'; app.cancelSynopsisTranslation();
     finish('Texto traduzido'); await pending;
@@ -36,7 +36,7 @@ test('automatic translation cannot overwrite a synopsis manually edited while wa
 test('failed translation keeps the full original synopsis and reports the failure', async () => {
     const { app } = setup(); app.newItem.synopsis = 'Original complete synopsis.';
     const context = { window: { ArkTranslation: { toPortuguese: async () => { throw new Error('Quota exceeded'); } } }, AbortController };
-    vm.createContext(context); vm.runInContext(fs.readFileSync('metadata.js', 'utf8'), context);
+    vm.createContext(context); vm.runInContext(fs.readFileSync('public/assets/js/metadata.js', 'utf8'), context);
     await context.window.metadataMixin.methods.translateSynopsis.call(app);
     assert.equal(app.newItem.synopsis, 'Original complete synopsis.');
     assert.match(app.translationError, /original foi mantida/); assert.equal(app.synopsisTranslating, false);
@@ -127,14 +127,14 @@ test('GraphQL errors in HTTP 200 responses also trigger the fallback', async () 
 });
 
 test('missing database columns keep the Portuguese synopsis and show inline setup instructions', async () => {
-    const html = fs.readFileSync('index.html', 'utf8');
+    const html = fs.readFileSync('public/index.html', 'utf8');
     const start = html.indexOf('createApp({') + 'createApp('.length;
     const end = html.indexOf("}).mount('#app')", start) + 1;
     const context = { window: { readerMixin: {}, authMixin: {}, metadataMixin: {}, ArkMetadata: { imageURL: url => url } },
         alert() { throw new Error('Database errors must not use blocking alerts'); },
         _supabase: { from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: null, error: { code: 'PGRST204' } }) }) }) }) } };
     context.crypto=require('node:crypto').webcrypto;
-    vm.createContext(context);vm.runInContext(fs.readFileSync('discovery.js','utf8'),context);
+    vm.createContext(context);vm.runInContext(fs.readFileSync('public/assets/js/discovery.js','utf8'),context);
     const options = vm.runInContext('(' + html.slice(start, end) + ')', context);
     const app = { ...options.data(), ...options.methods, isAdmin: true, synopsisTranslating: false,
         userSession: { user: { id: 'admin' } }, cancelMetadataSearch() {} };

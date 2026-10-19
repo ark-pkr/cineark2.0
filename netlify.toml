@@ -4,7 +4,7 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  included_files = ["dist/index.html", "config.js"]
+  included_files = ["dist/index.html", "public/assets/js/config.js"]
 [[headers]]
   for = "/sw.js"
   [headers.values]

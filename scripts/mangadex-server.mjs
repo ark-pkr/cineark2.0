@@ -3,24 +3,26 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import vm from 'node:vm';
+import { PUBLIC_FILES } from './public-assets.mjs';
 import { createMangaDexProxy } from '../supabase/functions/_shared/mangadex-proxy.mjs';
 import { createPageTranslator } from './page-translator.mjs';
 import { createWorkPageHandler } from './work-page.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
+const publicRoot = resolve(root,'public');
 try { process.loadEnvFile(resolve(root, '.env.local')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const publicConfig = { window: {} };
-vm.runInNewContext(await readFile(resolve(root, 'config.js'), 'utf8'), publicConfig);
+vm.runInNewContext(await readFile(resolve(publicRoot,'assets/js/config.js'), 'utf8'), publicConfig);
 const settings = publicConfig.window.CINE_ARK_CONFIG;
 const translatePage = createPageTranslator({ supabaseUrl: settings.supabaseUrl, anonKey: settings.supabaseAnonKey,
     bucket: settings.pagesBucket, apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' });
 const handler = createMangaDexProxy();
-const workPage = createWorkPageHandler({settings,loadTemplate:()=>readFile(resolve(root,'index.html'),'utf8')});
+const workPage = createWorkPageHandler({settings,loadTemplate:()=>readFile(resolve(publicRoot,'index.html'),'utf8')});
 const port = Number(process.env.PORT || process.env.ARK_MANGADEX_PORT || 8787);
 const host = process.env.PORT ? '0.0.0.0' : '127.0.0.1';
 const publicOrigin = process.env.RENDER_EXTERNAL_URL ? new URL(process.env.RENDER_EXTERNAL_URL).origin : null;
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Porta inválida.');
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.png': 'image/png' };
-const publicFiles = new Set(['index.html', 'reader.js', 'reader-controls.js', 'personal-library.js','discovery.js', 'cloud-reader.js', 'external-progress.js', 'continue-reading.js', 'page-translation.js', 'mangadex.js', 'auth.js', 'metadata.js', 'translation.js', 'config.js', 'reader.css', 'theme.css', 'manifest.json', 'sw.js', 'icone.png','robots.txt']);
+const publicFiles = new Set(PUBLIC_FILES);
 export const server = http.createServer(async (incoming, outgoing) => {
     try {
         const url = new URL(incoming.url, publicOrigin || `http://127.0.0.1:${port}`);
@@ -56,7 +58,7 @@ export const server = http.createServer(async (incoming, outgoing) => {
         if (incoming.method !== 'GET' && incoming.method !== 'HEAD') { outgoing.writeHead(405).end(); return; }
         const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
         if (!publicFiles.has(file)) { outgoing.writeHead(404).end('Not found'); return; }
-        const data = await readFile(resolve(root, file));
+        const data = await readFile(resolve(publicRoot, file));
         const extension = file.slice(file.lastIndexOf('.'));
         outgoing.writeHead(200, { 'Content-Type': types[extension] || 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
         outgoing.end(incoming.method === 'HEAD' ? undefined : data);

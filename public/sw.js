@@ -1,9 +1,9 @@
-const CACHE_NAME = 'cine-ark-v31-chapter-focused';
+const CACHE_NAME = 'cine-ark-v32-folders';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
-const ASSETS = ['./index.html','./reader.js','./reader-controls.js','./personal-library.js','./discovery.js','./external-progress.js',
-    './continue-reading.js','./page-translation.js','./mangadex.js','./cloud-reader.js','./auth.js','./metadata.js',
-    './translation.js','./config.js','./reader.css','./theme.css','./manifest.json'];
+const ASSETS = ['./index.html','./assets/js/reader.js','./assets/js/reader-controls.js','./assets/js/personal-library.js','./assets/js/discovery.js','./assets/js/external-progress.js',
+    './assets/js/continue-reading.js','./assets/js/page-translation.js','./assets/js/mangadex.js','./assets/js/cloud-reader.js','./assets/js/auth.js','./assets/js/metadata.js',
+    './assets/js/translation.js','./assets/js/config.js','./assets/css/reader.css','./assets/css/theme.css','./manifest.json'];
 self.addEventListener('install', event => {
     event.waitUntil(caches.open(CACHE_NAME).then(cache => Promise.allSettled(ASSETS.map(asset=>cache.add(asset)))));
     self.skipWaiting();

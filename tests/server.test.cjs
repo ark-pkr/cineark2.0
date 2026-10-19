@@ -11,10 +11,12 @@ test('production server binds PORT, serves readiness and does not expose private
         const base = 'http://127.0.0.1:18787';
         assert.equal((await fetch(base + '/healthz')).status, 200);
         assert.match(await (await fetch(base)).text(), /mangadex.js/);
-        assert.equal((await fetch(base + '/page-translation.js')).status, 200);
+        assert.equal((await fetch(base + '/assets/js/page-translation.js')).status, 200);
+        const {PUBLIC_FILES}=await import('../scripts/public-assets.mjs');
+        for(const file of PUBLIC_FILES) assert.equal((await fetch(base+'/'+file)).status,200,'Public asset: '+file);
         assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
         assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'x'.repeat(3000) })).status, 413);
-        for (const path of ['/.env', '/.env.local', '/.git/config', '/supabase/config.toml', '/package.json']) {
+        for (const path of ['/.env', '/.env.local', '/.git/config', '/supabase/config.toml', '/package.json','/public/index.html','/scripts/public-assets.mjs','/supabase/sql/personal-library.sql']) {
             assert.equal((await fetch(base + path)).status, 404);
         }
         // A same-origin HTTPS browser request must pass CORS behind Render's TLS proxy.

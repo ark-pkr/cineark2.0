@@ -24,13 +24,30 @@ window.readerMixin = {
         return { readingWork: null, chapters: [], activeChapter: null, pageURLs: [], readerPage: 0,
             readingMode: 'vertical', readingDirection: 'ltr', readingProgress: progress || {},
             chapterNumber: 1, chapterTitle: '', chapterFiles: [], readerBusy: false, readerError: '',
-            chapterObserver: null, readerLoading: false, localChapters: [], uploadStatus: '', progressSync: '', progressLoading: false };
+            chapterObserver: null, readerLoading: false, localChapters: [], uploadStatus: '', uploadDone:0, uploadTotal:0, chapterPreviews:[], progressSync: '', progressLoading: false };
+    },
+    watch: {
+        chapterFiles(files) {
+            const retained = new Set(files);
+            this._uploadPreviewURLs ||= new Map();
+            for (const [file,url] of this._uploadPreviewURLs) if (!retained.has(file)) { URL.revokeObjectURL(url); this._uploadPreviewURLs.delete(file); }
+            this.chapterPreviews = files.map(file => {
+                if (!this._uploadPreviewURLs.has(file)) this._uploadPreviewURLs.set(file,URL.createObjectURL(file));
+                return {file,url:this._uploadPreviewURLs.get(file)};
+            });
+        }
     },
     computed: {
+        currentWorkProgress() { return this.readingWork ? this.readingProgress[(this.chapterSource==='mangadex'?'mangadex:':'')+this.readingWork.id] : null; },
         readingChapters() { return this.activeChapter?.source === 'mangadex' || !this.activeChapter && this.chapterSource === 'mangadex' ? this.dexChapters : this.chapters.filter(c => c.published); },
         chapterIndex() { return (this.readerChapterSequence || this.readingChapters).findIndex(c => c.id === this.activeChapter?.id); }
     },
     methods: {
+        startWorkReading() {
+            if (this.readerBusy || !this.readingChapters.length) return;
+            const first=[...this.readingChapters].sort((a,b)=>Number(a.number)-Number(b.number))[0];
+            this._skipReaderRestore=true;return this.openChapter(first,0);
+        },
         cloudAPI() {
             if (!this._cloudAPI) this._cloudAPI = new window.ArkCloudReader(_supabase, window.CINE_ARK_CONFIG?.pagesBucket || 'ark-pages');
             return this._cloudAPI;
@@ -82,6 +99,18 @@ window.readerMixin = {
             this.collectChapterFiles(event.target.files);
             event.target.value = '';
         },
+        moveChapterPage(index, direction) {
+            if (!this.isAdmin || this.readerBusy || !Number.isInteger(index)) return;
+            const target=index+direction;
+            if (![-1,1].includes(direction) || index<0 || index>=this.chapterFiles.length || target<0 || target>=this.chapterFiles.length) return;
+            const files=[...this.chapterFiles];
+            [files[index],files[target]]=[files[target],files[index]];
+            this.chapterFiles=files; this._chapterOrderEdited=true;
+        },
+        removeChapterPage(index) {
+            if (!this.isAdmin || this.readerBusy) return;
+            this.chapterFiles=this.chapterFiles.filter((_,i)=>i!==index);
+        },
         collectChapterFiles(files) {
             if (!this.isAdmin || this.readerBusy) return;
             const selected = Array.from(files || []);
@@ -90,8 +119,10 @@ window.readerMixin = {
                 this.readerError = 'Cada página pode ter no máximo 15 MiB. Os arquivos anteriores foram mantidos.'; return;
             }
             const key = file => [file.webkitRelativePath || file.name, file.size, file.lastModified].join(':');
-            this.chapterFiles = [...new Map([...this.chapterFiles, ...images].map(file => [key(file), file])).values()]
-                .sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, 'pt-BR', { numeric: true }));
+            if (!this.chapterFiles.length) this._chapterOrderEdited=false;
+            const compare=(a,b)=>(a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, 'pt-BR', { numeric:true });
+            const combined=[...new Map([...this.chapterFiles, ...images.sort(compare)].map(file => [key(file), file])).values()];
+            this.chapterFiles=this._chapterOrderEdited ? combined : combined.sort(compare);
             this.readerError = selected.length !== images.length ? 'Arquivos que não são imagens foram ignorados.' : '';
         },
         pasteChapterFiles(event) {
@@ -127,6 +158,7 @@ window.readerMixin = {
             const stillViewing = () => stillCurrent() && String(this.readingWork?.id) === String(workId) && request === this._workRequest;
             files = Array.from(files);
             this.readerBusy = true;
+            this.uploadDone=0; this.uploadTotal=files.length;
             this.uploadStatus = 'Verificando imagens…';
             try {
                 const dimensions = [];
@@ -136,7 +168,7 @@ window.readerMixin = {
                     bitmap.close();
                 }
                 const chapter = await this.cloudAPI().upload({ workId, number, title, files, dimensions, isCurrent: stillCurrent,
-                    onProgress: (done, total) => { if (stillViewing()) this.uploadStatus = `Enviando páginas: ${done}/${total}`; } });
+                    onProgress: (done, total) => { if (stillViewing()) {this.uploadDone=done;this.uploadTotal=total;this.uploadStatus = `Enviando páginas: ${done}/${total}`;} } });
                 if (!stillViewing()) return;
                 this.chapters = [...this.chapters, chapter].sort((a, b) => a.number - b.number);
                 this.chapterNumber = number + 1; this.chapterTitle = ''; this.chapterFiles = [];
@@ -185,6 +217,9 @@ window.readerMixin = {
             if (this.readerBusy || !chapter || chapter.source === 'remote' && !chapter.published) return;
             const request = this._chapterRequest = (this._chapterRequest || 0) + 1;
             const userId = this.userSession?.user?.id, workId = this.readingWork?.id;
+            const saved=this.readingProgress[(chapter.source==='mangadex'?'mangadex:':'')+workId];
+            const offset=!this._skipReaderRestore && saved?.chapterId===chapter.id && saved.page===page ? Math.max(0,Math.min(1,Number(saved.offset)||0)) : 0;
+            this._skipReaderRestore=false;
             this.readerBusy = true; this.readerError = '';
             try {
                 let urls, pages;
@@ -200,6 +235,7 @@ window.readerMixin = {
                 if (this.activeChapter) this.saveReadingProgress();
                 this.cancelPageTranslation?.();
                 this.releasePages(); this.readerLoading = true;
+                this._readerPageOffset=offset;this._readerRestore={chapterId:chapter.id,page:Number(page)||0,offset};
                 this.activeChapter = { ...chapter, dimensions: pages ? pages.map(p => ({ width: p.width, height: p.height })) : chapter.source === 'mangadex' ? urls.map(() => ({ width: 2, height: 3 })) : chapter.dimensions,
                     storagePages: pages, externalQuality: chapter.source === 'mangadex' ? this.dexQuality : null };
                 this.pageURLs = urls;
@@ -248,7 +284,7 @@ window.readerMixin = {
             const remote = this.activeChapter.source === 'remote';
             const external = this.activeChapter.source === 'mangadex';
             const key = external ? 'mangadex:' + this.readingWork.id : this.readingWork.id;
-            this.readingProgress[key] = { chapterId: this.activeChapter.id, page: this.readerPage,
+            this.readingProgress[key] = { chapterId: this.activeChapter.id, page: this.readerPage, offset:this._readerPageOffset || 0,
                 remote, updatedAt: new Date().toISOString(), syncPending: remote || external,
                 ...(external ? { source: 'mangadex', mangaId: this.activeChapter.mangaId, number: this.activeChapter.number, language: this.activeChapter.language } : {}) };
             this.persistReadingProgress();
@@ -328,6 +364,7 @@ window.readerMixin = {
         readerKey(event) {
             if (!this.activeChapter || ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) return;
             if (event.key === 'Escape') {
+                if (this.readerControlsHidden) { this.readerControlsHidden=false;return; }
                 if (this.readerFocus) { this.readerFocus = false; return; }
                 if (this.readerDrawerOpen) { this.readerDrawerOpen = false; return; }
                 this.closeReader();
@@ -369,6 +406,7 @@ window.readerMixin = {
         document.addEventListener('visibilitychange', this._readerVisibilityHandler);
     },
     beforeUnmount() {
+        for (const url of this._uploadPreviewURLs?.values() || []) URL.revokeObjectURL(url);
         clearTimeout(this._progressTimer); clearTimeout(this._progressLoadTimer);
         this._workRequest++; this._chapterRequest++; this._progressLoadRequest++;
         this.flushReadingProgress(); this.releasePages();

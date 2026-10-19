@@ -2,10 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-function setup() {
+function setup(extraContext={}) {
     const storage = new Map();
     const context = { window: {}, indexedDB: { open: () => ({}) }, AbortController, setTimeout: () => 0, clearTimeout() {},
-        localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) } };
+        localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },...extraContext };
     vm.createContext(context);
     for (const file of ['reader.js', 'mangadex.js', 'reader-controls.js']) vm.runInContext(fs.readFileSync('public/assets/js/' + file, 'utf8'), context);
     const mixins = [context.window.readerMixin, context.window.mangadexMixin, context.window.readerControlsMixin];
@@ -16,6 +16,53 @@ function setup() {
     return app;
 }
 const dex = (id, number, group = 'A') => ({ id, number, group, volume: '1', source: 'mangadex', published: true, mangaId: 'manga', language: 'pt-br' });
+
+test('preloading stays bounded to the next two pages and releases old image references',()=>{
+    const app=setup({Image:class {set src(value){this.url=value;}}});
+    app.pageURLs=['zero','one','two','three','four'];app.readerPage=0;app.preloadReaderPages();
+    assert.deepEqual(Array.from(app._readerPreloads.keys()),[1,2]);
+    const old=app._readerPreloads.get(1);app.readerPage=2;app.preloadReaderPages();
+    assert.equal(old.url,'');assert.equal(app._readerPreloads.get(3).url,'three');assert.equal(app._readerPreloads.get(4).url,'four');
+    app.resetReaderControls();assert.equal(app._readerPreloads.size,0);
+});
+test('restoring a saved page applies its local fractional offset after image layout',async()=>{
+    const app=setup();app.activeChapter={id:'chapter',source:'remote'};app.pageURLs=['page'];app.readerPage=0;
+    const page={clientHeight:800,getBoundingClientRect:()=>({top:60})};
+    const root={scrollTop:300,querySelector:()=>page,getBoundingClientRect:()=>({top:100})};app.$refs={readerScroll:root};
+    app._readerRestore={chapterId:'chapter',page:0,offset:.25};
+    await app.readerPageReady({target:{dataset:{chapter:'chapter'}}},0);
+    assert.equal(root.scrollTop,460);assert.equal(app._readerRestore,null);
+});
+
+test('immersive scroll hides downward, restores upward and leaves open preferences visible',()=>{
+    const app=setup();app.$refs={readerPreferences:{open:false}};app.pageURLs=['one','two'];app.readerPage=0;
+    const root={scrollTop:200,clientHeight:400,scrollHeight:2000,querySelector:()=>null};
+    app.readerScrolled({target:root});assert.equal(app.readerControlsHidden,true);
+    root.scrollTop=150;app.readerScrolled({target:root});assert.equal(app.readerControlsHidden,false);
+    app.$refs.readerPreferences.open=true;root.scrollTop=300;app.readerScrolled({target:root});assert.equal(app.readerControlsHidden,false);
+});
+test('work preferences stay independent and ending a chapter never navigates automatically',()=>{
+    const app=setup();app.readingMode='paged';app.readingDirection='rtl';app.readerSpacing=8;app.changeReadingMode=()=>{};
+    app.saveReaderPreferences();app.readingWork={id:'other',type:'Manhwa'};app.prepareImmersiveReader();assert.equal(app.readingMode,'vertical');assert.equal(app.readerSpacing,0);
+    app.readingWork={id:'work'};app.prepareImmersiveReader();assert.equal(app.readingMode,'paged');assert.equal(app.readingDirection,'rtl');assert.equal(app.readerSpacing,8);
+    let navigation=0;app.navigateReaderChapter=()=>navigation++;app.pageURLs=['one'];app.readerLoadedPages={0:true};app.readerPage=0;app.$refs={};
+    app.readerScrolled({target:{scrollTop:600,clientHeight:400,scrollHeight:1000,querySelector:()=>null}});
+    assert.equal(app.readerEndReached,true);assert.equal(navigation,0);
+});
+test('retry renews only the failed page and stale load events cannot mark the next chapter ready',async()=>{
+    const app=setup();const page={storage_path:'two.jpg'};app.activeChapter={id:'a',source:'remote',storagePages:[{},page]};app.pageURLs=['one','two'];app.readerFailedPages={1:true};
+    app.cloudAPI=()=>({signedURLs:async pages=>{assert.equal(pages.length,1);assert.equal(pages[0],page);return ['renewed'];}});
+    await app.retryReaderPage(1);assert.equal(app.pageURLs[0],'one');assert.equal(app.pageURLs[1],'renewed');assert.equal(app.readerRetries[1],1);
+    app.readerPageReady({target:{dataset:{chapter:'old'}}},0);assert.equal(app.readerLoadedPages[0],undefined);
+});
+
+test('start from beginning ignores display order and opens the first chapter at page zero', async () => {
+    const app=setup();app.dexChapters=[dex('three','3'),dex('one','1'),dex('two','2')];
+    app.readingProgress={'mangadex:work':{chapterId:'three',page:8}};
+    let opened;app.openChapter=async(chapter,page)=>{opened={id:chapter.id,page};};
+    await app.startWorkReading();assert.deepEqual(opened,{id:'one',page:0});
+    assert.equal(app.currentWorkProgress.page,8);
+});
 
 test('guest can search editions and load chapter feeds without authentication', async () => {
     const app = setup();app.userSession=null;app.dexQuery='Berserk';

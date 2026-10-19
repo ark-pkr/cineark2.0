@@ -3,11 +3,17 @@ window.readerControlsMixin = {
         let saved = {};
         try { saved = JSON.parse(localStorage.getItem('ark-reader-preferences') || '{}') || {}; } catch (_) {}
         return { readerDrawerOpen: false, readerChapterSearch: '', readerChapterLimit: 80, readerFocus: false, readerNavigating: false,
+            readerControlsHidden:false, readerAutoHide:saved.autoHide!==false, readerTheme:['black','gray','sepia'].includes(saved.theme)?saved.theme:'black',
+            readerHint:false, readerEndReached:false, readerFailedPages:{}, readerLoadedPages:{}, readerRetries:{},
             readerWidth: ['680', '900', '1100', 'full'].includes(saved.width) ? saved.width : '900',
             readerBrightness: Math.max(50,Math.min(100,Number(saved.brightness)||100)),
             readerSpacing: [0,8,16,24].includes(saved.spacing) ? saved.spacing : 0,
             readingMode: ['vertical','paged'].includes(saved.mode) ? saved.mode : 'vertical',
             readingDirection: saved.direction === 'rtl' ? 'rtl' : 'ltr' };
+    },
+    watch: {
+        readerPage() { this._readerPageOffset=0;this.preloadReaderPages(); if(this.readingMode==='paged') this.readerEndReached=this.readerPage===this.pageURLs.length-1 && !!this.readerLoadedPages[this.readerPage];else if(this.readerPage<this.pageURLs.length-1) this.readerEndReached=false; },
+        activeChapter(chapter) { if(chapter) this.prepareImmersiveReader(); }
     },
     computed: {
         readerImageWidth() { return this.readerWidth === 'full' ? '100%' : this.readerWidth + 'px'; },
@@ -37,8 +43,82 @@ window.readerControlsMixin = {
         }
     },
     methods: {
+        prepareImmersiveReader() {
+            this.readerControlsHidden=false;this.readerEndReached=false;this.readerFailedPages={};this.readerLoadedPages={};this.readerRetries={};this._readerLastScroll=0;
+            this._readerPreloads=new Map();
+            let preferences={};
+            try { preferences=JSON.parse(localStorage.getItem('ark-reader-work:'+this.readingWork.id)||'{}') || {};this.readerHint=!localStorage.getItem('ark-reader-hint-seen'); }catch(_){}
+            this.readingMode=['vertical','paged'].includes(preferences.mode)?preferences.mode:'vertical';
+            this.readingDirection=preferences.direction==='rtl'?'rtl':'ltr';
+            this.readerSpacing=[0,8,16,24].includes(preferences.spacing)?preferences.spacing:0;
+            this.$nextTick(()=>this.preloadReaderPages());
+        },
+        dismissReaderHint() { this.readerHint=false;try{localStorage.setItem('ark-reader-hint-seen','1');}catch(_){} },
+        readerCanvasClick(event) {
+            if(event.target.closest?.('button,a,input,select,summary') || this.readerDrawerOpen) return;
+            if(typeof window.getSelection==='function' && window.getSelection()?.toString()) return;
+            const rect=event.currentTarget.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width;
+            if(x<.25 || x>.75) return;
+            this.readerControlsHidden=!this.readerControlsHidden;
+            this.dismissReaderHint();
+        },
+        readerScrolled(event) {
+            const root=event.target,delta=root.scrollTop-(this._readerLastScroll || 0);
+            if(Math.abs(delta)>12) {
+                if(this.readerAutoHide && !this.readerDrawerOpen && !this.pageTranslationOpen && !this.$refs.readerPreferences?.open) this.readerControlsHidden=delta>0 && root.scrollTop>100;
+                this._readerLastScroll=root.scrollTop;
+            }
+            const last=this.pageURLs.length-1;
+            if(root.scrollTop+root.clientHeight>=root.scrollHeight-60 && this.readerLoadedPages[last]) {this.readerEndReached=true;this.readerControlsHidden=false;}
+            // Store an offset within the current page, rather than a brittle total scrollTop.
+            const page=root.querySelector(`[data-page="${this.readerPage}"]`);
+            if(page && !this.readerLoading) {
+                this._readerPageOffset=Math.max(0,Math.min(1,(root.getBoundingClientRect().top-page.getBoundingClientRect().top)/Math.max(1,page.clientHeight)));
+                clearTimeout(this._readerOffsetTimer);this._readerOffsetTimer=setTimeout(()=>this.saveReadingProgress(),250);
+            }
+        },
+        preloadReaderPages() {
+            if(typeof Image==='undefined' || !this.pageURLs.length) return;
+            this._readerPreloads ||= new Map();
+            const start=this.readerPage,end=Math.min(start+2,this.pageURLs.length-1);
+            for(const [index,image] of this._readerPreloads) if(index<start || index>end) {image.src='';this._readerPreloads.delete(index);}
+            for(let index=start+1;index<=end;index++) if(!this._readerPreloads.has(index)) {
+                const image=new Image(),chapter=this.activeChapter;
+                image.onload=()=>{if(this.activeChapter===chapter && chapter?.source==='mangadex' && image.naturalWidth && image.naturalHeight) chapter.dimensions[index]={width:image.naturalWidth,height:image.naturalHeight};};
+                image.src=this.pageURLs[index];this._readerPreloads.set(index,image);
+            }
+        },
+        readerPageFailed(index) { this.readerFailedPages[index]=true;delete this.readerLoadedPages[index]; },
+        async retryReaderPage(index) {
+            if(!Number.isInteger(index) || index<0 || index>=this.pageURLs.length || this.readerBusy) return;
+            delete this.readerFailedPages[index];this.readerRetries[index]=(this.readerRetries[index]||0)+1;
+            const chapter=this.activeChapter,userId=this.userSession?.user?.id;
+            if(chapter?.source==='remote') {
+                try {
+                    const urls=await this.cloudAPI().signedURLs([chapter.storagePages[index]]);
+                    if(this.activeChapter===chapter && userId===this.userSession?.user?.id) this.pageURLs[index]=urls[0];
+                }catch(_) {if(this.activeChapter===chapter) this.readerFailedPages[index]=true;}
+            }
+        },
+        async readerPageReady(event,index) {
+            if(event.target.dataset?.chapter && event.target.dataset.chapter!==this.activeChapter?.id) return;
+            const chapter=this.activeChapter,root=this.$refs.readerScroll;
+            const anchor=root?.querySelector(`[data-page="${this.readerPage}"]`),anchorTop=anchor?.getBoundingClientRect().top;
+            this.readerImageLoaded(event,index);this.readerLoadedPages[index]=true;delete this.readerFailedPages[index];
+            if(this.readingMode==='paged' && index===this.pageURLs.length-1) this.readerEndReached=true;
+            await this.$nextTick();
+            if(this.activeChapter!==chapter) return;
+            const pending=this._readerRestore;
+            if(pending && pending.chapterId===this.activeChapter?.id && pending.page===index) {
+                const page=root?.querySelector(`[data-page="${index}"]`);
+                if(root && page) {root.scrollTop+=page.getBoundingClientRect().top-root.getBoundingClientRect().top+page.clientHeight*pending.offset;this._readerLastScroll=root.scrollTop;this._readerRestore=null;}
+            } else if(this.readingMode==='vertical' && index<this.readerPage && anchor && Number.isFinite(anchorTop)) {
+                root.scrollTop+=anchor.getBoundingClientRect().top-anchorTop;
+            }
+        },
         async jumpReaderPage(index) {
             if (!this.activeChapter || !this.pageURLs.length || !Number.isFinite(index)) return;
+            this._readerPageOffset=0;this._readerRestore=null;
             this.readerPage = Math.max(0, Math.min(this.pageURLs.length - 1, Math.floor(index)));
             this.saveReadingProgress();
             await this.$nextTick();
@@ -53,11 +133,15 @@ window.readerControlsMixin = {
             this.readerDrawerOpen = !this.readerDrawerOpen;
             this.readerChapterSearch = ''; this.readerChapterLimit = 80;
         },
-        resetReaderControls() { this.readerDrawerOpen = false; this.readerFocus = false; this.readerChapterSearch = ''; },
+        resetReaderControls() { this.readerDrawerOpen = false; this.readerFocus = false; this.readerChapterSearch = '';this.readerControlsHidden=false;clearTimeout(this._readerOffsetTimer);for(const image of this._readerPreloads?.values() || []) image.src='';this._readerPreloads?.clear(); },
         saveReaderPreferences() {
             try { localStorage.setItem('ark-reader-preferences', JSON.stringify({ width: this.readerWidth, brightness:this.readerBrightness,
-                spacing:this.readerSpacing, mode:this.readingMode, direction:this.readingDirection })); } catch (_) {}
+                spacing:this.readerSpacing, mode:this.readingMode, direction:this.readingDirection,theme:this.readerTheme,autoHide:this.readerAutoHide }));
+                if(this.readingWork) localStorage.setItem('ark-reader-work:'+this.readingWork.id,JSON.stringify({mode:this.readingMode,direction:this.readingDirection,spacing:this.readerSpacing}));
+            } catch (_) {}
+            if(!this.readerAutoHide) this.readerControlsHidden=false;
             this.changeReadingMode();
         }
-    }
+    },
+    beforeUnmount() {this.resetReaderControls();}
 };

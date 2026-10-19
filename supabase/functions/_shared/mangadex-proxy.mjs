@@ -61,7 +61,7 @@ export function createMangaDexProxy({ fetcher = fetch, allowedOrigins = LOCAL_OR
     function normalizeManga(row) {
         const a = row.attributes || {};
         return { id: row.id, title: title(row), alternateTitles: (a.altTitles || []).flatMap(t => Object.values(t)).slice(0, 8),
-            description: a.description?.['pt-br'] || a.description?.pt || a.description?.en || '', year: a.year || null,
+            description: a.description?.['pt-br'] || a.description?.pt || a.description?.en || '', descriptionLanguage:a.description?.['pt-br']?'pt-br':a.description?.pt?'pt':'en', year: a.year || null,
             originalLanguage: a.originalLanguage, status: a.status, hasCover: (row.relationships || []).some(r => r.type === 'cover_art') };
     }
     async function manifest(chapterId) {

@@ -7,12 +7,49 @@ function setup(fetcher, timers = {}) {
     context.crypto=require('node:crypto').webcrypto;
     vm.createContext(context); vm.runInContext(fs.readFileSync('public/assets/js/discovery.js', 'utf8'), context); vm.runInContext(fs.readFileSync('public/assets/js/metadata.js', 'utf8'), context);
     const mixin = context.window.metadataMixin;
-    return { api: context.window.ArkMetadata,
+    return { api: context.window.ArkMetadata, context,
         app: { ...mixin.data(), ...mixin.methods, isAdmin: true, showModal: true, newItem: { title: 'Berserk' } } };
 }
 const result = { title: 'Berserk', mal_id: 2, chapters: null, type: 'Manga', synopsis: 'A story.', images: { jpg: { large_image_url: 'https://example.com/cover.jpg' } } };
 const aniResult = { id: 77, idMal: 2, title: { english: 'Berserk' }, description: 'A story.', coverImage: { large: 'https://example.com/cover.jpg' }, countryOfOrigin: 'JP', chapters: null };
 const response = rows => ({ ok: true, json: async () => ({ data: { Page: { media: rows } } }) });
+
+test('Portuguese regressed duke title resolves to the verified international title',async()=>{
+    const {api}=setup(async(url,options)=>{
+        assert.equal(JSON.parse(options.body).variables.search,'The Reborn Young Lord is an Assassin');
+        return response([aniResult]);
+    });
+    assert.equal((await api.search('O Filho Regressado do Duque é um Assassino')).length,1);
+});
+test('another metadata source can return a Portuguese name absent from AniList and Jikan',async()=>{
+    const {api,context}=setup(async url=>url.includes('jikan')?{ok:true,json:async()=>({data:[]})}:response([]));
+    context.window.ArkMangaDex=class {
+        search=async()=>({data:[{id:'a',title:'Título localizado',description:'Sinopse portuguesa',descriptionLanguage:'pt-br',hasCover:true,originalLanguage:'ko',alternateTitles:['Original title']}]});
+        cover=()=> 'https://example.com/cover.jpg';
+    };
+    const rows=await api.search('Título localizado');
+    assert.equal(rows[0].provider,'MangaDex');assert.equal(rows[0].synopsisLanguage,'pt-br');
+    assert.equal(api.fields(rows[0]).type,'Manhwa');
+});
+test('a confirmed Portuguese alias is reused without translating or guessing again',async()=>{
+    const {api}=setup(async(url,options)=>{
+        assert.equal(JSON.parse(options.body).variables.search,'Original confirmed title');return response([aniResult]);
+    });
+    api.rememberTitle('Meu título em português',{title:'Original confirmed title'});
+    assert.equal((await api.search('Meu título em português')).length,1);
+});
+test('any unmatched title can use keyword searches without a predefined alias and results remain suggestions',async()=>{
+    const queried=[];
+    const {api}=setup(async(url,options)=>{
+        if(url.includes('mymemory')) return {ok:true,json:async()=>({responseStatus:200,responseData:{translatedText:'The Legend of the Northern Blade'}})};
+        if(url.includes('jikan')) return {ok:true,json:async()=>({data:[]})};
+        const q=JSON.parse(options.body).variables.search;queried.push(q);
+        return response(q==='northern blade'?[{...aniResult,title:{english:'The Legend of the Northern Blade'}}]:[]);
+    });
+    const rows=await api.search('A Lenda da Lâmina do Norte');
+    assert.ok(queried.includes('northern blade'));assert.ok(queried.includes('legend northern'));
+    assert.equal(rows[0].title,'The Legend of the Northern Blade');assert.equal(rows[0].approximate,true);
+});
 
 test('Portuguese alias resolves punctuation and preserves the entered title on selection', async () => {
     const { api, app } = setup(async (url, options) => {

@@ -5,26 +5,80 @@ window.ArkMetadata = (() => {
     const searchAliases = new Map([
         ['mago da areia do deserto ardente', 'Bultan Samagui Moraesulsa'],
         ['necromante rei dos mortos', 'Catastrophic Necromancer'],
-        ['necromante o rei da calamidade', 'Catastrophic Necromancer']
+        ['necromante o rei da calamidade', 'Catastrophic Necromancer'],
+        ['o filho regressado do duque e um assassino', 'The Reborn Young Lord is an Assassin'],
+        ['o filho regressor do duque e um assassino', 'The Reborn Young Lord is an Assassin'],
+        ['o filho regressivo do duque e um assassino', 'The Reborn Young Lord is an Assassin']
     ]);
+    const learnedAliases=new Map();
+    try {
+        const saved=JSON.parse(localStorage.getItem('ark-title-aliases-v1') || '[]');
+        if (Array.isArray(saved)) for (const pair of saved.slice(-100)) if (Array.isArray(pair) && pair.length===2 && pair.every(v=>typeof v==='string' && v.length<=300)) learnedAliases.set(...pair);
+    } catch (_) {}
     const normalizeTitle = title => title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-    const searchTitle = title => searchAliases.get(normalizeTitle(title)) || title;
+    const queryVariants = title => {
+        const stopwords=new Set('the a an of to in on at for from with and or is are was were be been being i me my you your he his she her it its we our they their as by into this that who'.split(' '));
+        const words=normalizeTitle(title).split(' ').filter(word=>word.length>2 && !stopwords.has(word));
+        if(words.length<3) return [];
+        return [...new Set([words.slice(-2).join(' '),words.slice(0,2).join(' ')])].filter(value=>value!==normalizeTitle(title));
+    };
+    const searchTitle = title => learnedAliases.get(normalizeTitle(title)) || searchAliases.get(normalizeTitle(title)) || title;
+    async function localizedSource(title,signal) {
+        if (!window.ArkMangaDex) return [];
+        const api=new window.ArkMangaDex();
+        const controller=new AbortController(),abort=()=>controller.abort();
+        signal?.addEventListener('abort',abort,{once:true});
+        if(signal?.aborted) controller.abort();
+        const timer=setTimeout(abort,6000);
+        let body;
+        try { body=await api.search(title,controller.signal); }
+        finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);}
+        return (body.data || []).map(row=>({title:row.title,mal_id:null,synopsis:plainText(row.description),
+            synopsisLanguage:row.descriptionLanguage || 'en',chapters:null,authors:[],genres:[],
+            type:row.originalLanguage==='ko'?'Manhwa':row.originalLanguage==='zh' || row.originalLanguage==='zh-hk'?'Manhua':'Manga',
+            images:{jpg:{large_image_url:row.hasCover?api.cover(row.id):''}},
+            alternateTitles:row.alternateTitles || [],provider:'MangaDex',result_key:'mangadex:'+row.id}));
+    }
     async function searchLocalized(title, signal) {
         title = title.trim();
         const resolved = searchTitle(title);
-        const rows = await request('search', resolved, signal);
-        if (rows.length || resolved !== title) return rows;
+        let rows=[], providerError;
+        try { rows=await request('search',resolved,signal); } catch(error) { providerError=error; }
+        if (signal?.aborted) throw new DOMException('Cancelado','AbortError');
+        if (rows.length) return rows;
+        let alternativeError;
+        try { const extra=await localizedSource(title,signal);if(extra.length) return extra; }
+        catch(error) { alternativeError=error; }
+        if (signal?.aborted) throw new DOMException('Cancelado','AbortError');
+        if (providerError && /limite de consultas/i.test(providerError.message)) throw providerError;
         // Translation is a query suggestion, never a verified identity or automatic selection.
         const body = await json('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(title.slice(0, 200)) + '&langpair=pt%7Cen', {}, signal);
         if (Number(body.responseStatus) !== 200 || body.quotaFinished) throw new Error('A busca por nomes em português está temporariamente indisponível. Tente novamente mais tarde.');
         const translated = plainText(body.responseData?.translatedText);
-        if (!translated || normalizeTitle(translated) === normalizeTitle(title)) return rows;
-        return request('search', translated, signal);
+        if (translated && normalizeTitle(translated)!==normalizeTitle(title) && normalizeTitle(translated)!==normalizeTitle(resolved)) {
+            const translatedRows=await request('search',translated,signal);
+            if (translatedRows.length) return translatedRows;
+        }
+        // Localized scan names often differ from official names. Broaden every
+        // unmatched query using meaningful word pairs, with explicit review.
+        const variants=queryVariants(translated || title);
+        const alternatives=await Promise.allSettled(variants.map(query=>request('search',query,signal)));
+        if(signal?.aborted) throw new DOMException('Cancelado','AbortError');
+        const suggestions=new Map();
+        for(const entry of alternatives) if(entry.status==='fulfilled') for(const row of entry.value) {
+            suggestions.set(row.result_key || row.mal_id || row.title,{...row,approximate:true});
+        }
+        if(suggestions.size) return [...suggestions.values()].slice(0,12);
+        const failed=alternatives.find(entry=>entry.status==='rejected');
+        if(failed) throw failed.reason;
+        if(providerError) throw providerError;
+        if(alternativeError) throw new Error('A consulta de nomes alternativos não respondeu. Tente novamente; isso não significa que a obra não existe.');
+        return rows;
     }
     const imageURL = value => {
         try { const url = new URL(value); return url.protocol === 'https:' ? url.href : ''; } catch (_) { return ''; }
     };
-    const mediaFields = 'id idMal title { english romaji native } description(asHtml: false) coverImage { extraLarge large } countryOfOrigin chapters genres staff(perPage: 8) { edges { role node { name { full } } } }';
+    const mediaFields = 'id idMal title { english romaji native } synonyms description(asHtml: false) coverImage { extraLarge large } countryOfOrigin chapters genres staff(perPage: 8) { edges { role node { name { full } } } }';
     function plainText(value) {
         return String(value || '').replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/p\s*>/gi, '\n\n')
             .replace(/<[^>]*>/g, '').replace(/&(amp|lt|gt|quot|apos|nbsp);/gi, (_, name) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' })[name.toLowerCase()])
@@ -50,7 +104,7 @@ window.ArkMetadata = (() => {
             authors: (row.staff?.edges || []).filter(edge=>/story|art|original/i.test(edge.role)).map(edge=>({name:edge.node?.name?.full})),
             type: row.countryOfOrigin === 'KR' ? 'Manhwa' : row.countryOfOrigin === 'CN' || row.countryOfOrigin === 'TW' ? 'Manhua' : 'Manga',
             images: { jpg: { large_image_url: row.coverImage?.extraLarge || row.coverImage?.large } },
-            provider: 'AniList', result_key: 'anilist:' + row.id };
+            alternateTitles:[row.title?.romaji,row.title?.native,...(row.synonyms || [])].filter(Boolean),provider: 'AniList', result_key: 'anilist:' + row.id };
     }
     async function aniList(kind, value, signal) {
         const query = kind === 'search'
@@ -84,7 +138,7 @@ window.ArkMetadata = (() => {
             try { data = await jikan(kind, value, signal); }
             catch (error) {
                 if (signal?.aborted) throw new DOMException('Cancelado', 'AbortError');
-                if (!empty) throw new Error('Não foi possível consultar as fontes de mangás. ' + error.message + ' Tente novamente ou preencha os dados manualmente.');
+                throw new Error('Não foi possível completar a consulta às fontes de mangás. ' + error.message + ' Tente novamente ou preencha os dados manualmente.');
             }
         }
         if (signal?.aborted) throw new DOMException('Cancelado', 'AbortError');
@@ -94,6 +148,15 @@ window.ArkMetadata = (() => {
     }
     return {
         imageURL,
+        queryVariants,
+        rememberTitle(title,result) {
+            if (!title?.trim() || !result?.title || title.length>300 || result.title.length>300) return;
+            const key=normalizeTitle(title);
+            if(key===normalizeTitle(result.title)) return;
+            if(learnedAliases.size>=100) learnedAliases.delete(learnedAliases.keys().next().value);
+            learnedAliases.set(key,result.title);
+            try {localStorage.setItem('ark-title-aliases-v1',JSON.stringify([...learnedAliases]));}catch(_){}
+        },
         search: searchLocalized,
         get: (id, signal) => {
             if (!Number.isInteger(Number(id)) || Number(id) <= 0) return Promise.reject(new Error('Selecione uma obra válida.'));
@@ -166,7 +229,7 @@ window.metadataMixin = {
             if (!id && title.length < 3) { this.metadataError = 'Digite pelo menos 3 caracteres para buscar.'; return; }
             const request = this._metadataRequest;
             const controller = this._metadataController = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 25000);
+            const timeout = setTimeout(() => controller.abort(), 45000);
             this.metadataLoading = true;
             try {
                 const data = id ? await window.ArkMetadata.get(id, controller.signal) : await window.ArkMetadata.search(title, controller.signal);
@@ -184,10 +247,11 @@ window.metadataMixin = {
         selectResult(result) {
             if (!this.isAdmin) return;
             const fields = window.ArkMetadata.fields(result);
+            window.ArkMetadata.rememberTitle(this.newItem.title,result);
             // Keep the reader-facing Portuguese name entered by the administrator.
             fields.title = this.newItem.title?.trim() || fields.title;
             this.cancelMetadataSearch(); Object.assign(this.newItem, fields); this.metadataSelected = true;
-            if (fields.synopsis) this.translateSynopsis();
+            if (fields.synopsis && !/^pt(?:-|$)/i.test(result.synopsisLanguage || 'en')) this.translateSynopsis();
         },
         metadataCover(result) { return window.ArkMetadata.fields(result).poster; }
     },

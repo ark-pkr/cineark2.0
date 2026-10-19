@@ -1,7 +1,7 @@
-const CACHE_NAME = 'cine-ark-v44-immersive-reader';
+const CACHE_NAME = 'cine-ark-v46-desktop-controls';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
-const ASSETS = ['./index.html','./assets/js/reader.js','./assets/js/reader-controls.js','./assets/js/personal-library.js','./assets/js/discovery.js','./assets/js/external-progress.js',
+const ASSETS = ['./index.html','./assets/js/reader.js','./assets/js/reader-controls.js','./assets/js/personal-library.js','./assets/js/grimoire.js','./assets/js/discovery.js','./assets/js/external-progress.js',
     './assets/js/continue-reading.js','./assets/js/page-translation.js','./assets/js/mangadex.js','./assets/js/cloud-reader.js','./assets/js/auth.js','./assets/js/metadata.js',
     './assets/js/translation.js','./assets/js/config.js','./assets/css/reader.css','./assets/css/theme.css','./manifest.json'];
 self.addEventListener('install', event => {

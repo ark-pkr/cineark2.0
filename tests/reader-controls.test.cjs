@@ -17,6 +17,33 @@ function setup(extraContext={}) {
 }
 const dex = (id, number, group = 'A') => ({ id, number, group, volume: '1', source: 'mangadex', published: true, mangaId: 'manga', language: 'pt-br' });
 
+test('desktop idle collapses bars and moving to the top edge restores them',()=>{
+    let idle;const app=setup({setTimeout:fn=>{idle=fn;return 1;}});app.activeChapter=dex('one','1');app.$refs={};
+    const target={getBoundingClientRect:()=>({top:0,height:900})};
+    app.readerPointerMoved({pointerType:'mouse',clientY:400,currentTarget:target});idle();assert.equal(app.readerControlsHidden,true);
+    app.readerPointerMoved({pointerType:'mouse',clientY:20,currentTarget:target});assert.equal(app.readerControlsHidden,false);
+    app.readerDrawerOpen=true;app.readerPointerMoved({pointerType:'mouse',clientY:400,currentTarget:target});idle();assert.equal(app.readerControlsHidden,false);
+});
+test('H toggles reader bars without intercepting text fields',()=>{
+    const app=setup();app.activeChapter=dex('one','1');let prevented=false;
+    app.readerKey({key:'h',target:{tagName:'DIV'},preventDefault(){prevented=true;}});assert.equal(app.readerControlsHidden,true);assert.equal(prevented,true);
+    app.readerKey({key:'h',target:{tagName:'INPUT'},preventDefault(){assert.fail();}});assert.equal(app.readerControlsHidden,true);
+});
+
+test('marathon is optional, waits eight ticks, and cancel prevents automatic navigation',async()=>{
+    const app=setup();app.activeChapter=dex('one','1');app.dexChapters=[dex('one','1'),dex('two','2')];app.readerEndReached=true;app._marathonReachedBottom=true;
+    let opened=0;app.navigateReaderChapter=async()=>{opened++;};
+    app.startReaderMarathon();assert.equal(app.readerMarathonRemaining,0);
+    app.readerMarathon=true;app.startReaderMarathon();assert.equal(app.readerMarathonRemaining,8);
+    app.cancelReaderMarathon();await app.tickReaderMarathon();assert.equal(opened,0);
+    app.readerMarathonCancelled=false;app.startReaderMarathon();for(let i=0;i<7;i++)await app.tickReaderMarathon();assert.equal(opened,0);
+    await app.tickReaderMarathon();assert.equal(opened,1);
+});
+test('marathon never starts on a hidden tab or without reaching the chapter end',()=>{
+    const app=setup({document:{visibilityState:'hidden'}});app.readerMarathon=true;app.activeChapter=dex('one','1');app.dexChapters=[dex('one','1'),dex('two','2')];app.readerEndReached=true;app._marathonReachedBottom=true;
+    app.startReaderMarathon();assert.equal(app.readerMarathonRemaining,0);
+});
+
 test('preloading stays bounded to the next two pages and releases old image references',()=>{
     const app=setup({Image:class {set src(value){this.url=value;}}});
     app.pageURLs=['zero','one','two','three','four'];app.readerPage=0;app.preloadReaderPages();

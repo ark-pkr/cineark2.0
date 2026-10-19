@@ -5,6 +5,7 @@ window.readerControlsMixin = {
         return { readerDrawerOpen: false, readerChapterSearch: '', readerChapterLimit: 80, readerFocus: false, readerNavigating: false,
             readerControlsHidden:false, readerAutoHide:saved.autoHide!==false, readerTheme:['black','gray','sepia'].includes(saved.theme)?saved.theme:'black',
             readerHint:false, readerEndReached:false, readerFailedPages:{}, readerLoadedPages:{}, readerRetries:{},
+            readerMarathon:saved.marathon===true,readerMarathonRemaining:0,readerMarathonCancelled:false,
             readerWidth: ['680', '900', '1100', 'full'].includes(saved.width) ? saved.width : '900',
             readerBrightness: Math.max(50,Math.min(100,Number(saved.brightness)||100)),
             readerSpacing: [0,8,16,24].includes(saved.spacing) ? saved.spacing : 0,
@@ -13,7 +14,9 @@ window.readerControlsMixin = {
     },
     watch: {
         readerPage() { this._readerPageOffset=0;this.preloadReaderPages(); if(this.readingMode==='paged') this.readerEndReached=this.readerPage===this.pageURLs.length-1 && !!this.readerLoadedPages[this.readerPage];else if(this.readerPage<this.pageURLs.length-1) this.readerEndReached=false; },
-        activeChapter(chapter) { if(chapter) this.prepareImmersiveReader(); }
+        activeChapter(chapter) { if(chapter) this.prepareImmersiveReader(); },
+        readerEndReached(value) {if(value)this.startReaderMarathon();else this.cancelReaderMarathon(false);},
+        readerMarathon(value) {this.cancelReaderMarathon(false);this.readerMarathonCancelled=false;if(value && this.readerEndReached)this.startReaderMarathon();}
     },
     computed: {
         readerImageWidth() { return this.readerWidth === 'full' ? '100%' : this.readerWidth + 'px'; },
@@ -43,7 +46,33 @@ window.readerControlsMixin = {
         }
     },
     methods: {
+        readerPointerMoved(event) {
+            if(event.pointerType!=='mouse' || !this.activeChapter) return;
+            clearTimeout(this._readerIdleTimer);
+            const rect=event.currentTarget.getBoundingClientRect(),y=event.clientY-rect.top;
+            if(y<60 || y>rect.height-80) {this.readerControlsHidden=false;return;}
+            if(!this.readerAutoHide || this.readerFocus || this.readerEndReached)return;
+            const chapterId=this.activeChapter.id;
+            this._readerIdleTimer=setTimeout(()=>{
+                if(this.activeChapter?.id!==chapterId || !this.readerAutoHide || this.readerDrawerOpen || this.pageTranslationOpen || this.readerEndReached || this.$refs.readerPreferences?.open)return;
+                if(typeof document!=='undefined' && document.activeElement?.closest?.('.ark-reader-header,.ark-reader-navigation'))return;
+                this.readerControlsHidden=true;
+            },2500);
+        },
+        cancelReaderMarathon(permanent=true) {clearTimeout(this._marathonTimer);this.readerMarathonRemaining=0;if(permanent)this.readerMarathonCancelled=true;},
+        startReaderMarathon(manual=false) {
+            if(!this.readerMarathon || !this.readerCanNext || !this.readerEndReached || this.readerMarathonCancelled || this.readerMarathonRemaining || (!manual && !this._marathonReachedBottom) || (typeof document!=='undefined' && document.visibilityState==='hidden'))return;
+            this._marathonChapter=this.activeChapter?.id;this._marathonUser=this.userSession?.user?.id;this.readerMarathonRemaining=8;
+            this._marathonTimer=setTimeout(()=>this.tickReaderMarathon(),1000);
+        },
+        async tickReaderMarathon() {
+            if(!this.readerMarathon || !this.readerEndReached || !this.readerMarathonRemaining || this.readerMarathonCancelled || this._marathonChapter!==this.activeChapter?.id || this._marathonUser!==this.userSession?.user?.id || (typeof document!=='undefined' && document.visibilityState==='hidden')){this.cancelReaderMarathon();return;}
+            this.readerMarathonRemaining--;
+            if(this.readerMarathonRemaining<=0){this.readerMarathonCancelled=true;try{await this.navigateReaderChapter(1);}catch(_){this.readerError='Não foi possível abrir o próximo capítulo.';}return;}
+            this._marathonTimer=setTimeout(()=>this.tickReaderMarathon(),1000);
+        },
         prepareImmersiveReader() {
+            this.cancelReaderMarathon(false);this.readerMarathonCancelled=false;this._marathonReachedBottom=false;
             this.readerControlsHidden=false;this.readerEndReached=false;this.readerFailedPages={};this.readerLoadedPages={};this.readerRetries={};this._readerLastScroll=0;
             this._readerPreloads=new Map();
             let preferences={};
@@ -65,11 +94,12 @@ window.readerControlsMixin = {
         readerScrolled(event) {
             const root=event.target,delta=root.scrollTop-(this._readerLastScroll || 0);
             if(Math.abs(delta)>12) {
+                if(delta<0 && this.readerMarathonRemaining)this.cancelReaderMarathon();
                 if(this.readerAutoHide && !this.readerDrawerOpen && !this.pageTranslationOpen && !this.$refs.readerPreferences?.open) this.readerControlsHidden=delta>0 && root.scrollTop>100;
                 this._readerLastScroll=root.scrollTop;
             }
             const last=this.pageURLs.length-1;
-            if(root.scrollTop+root.clientHeight>=root.scrollHeight-60 && this.readerLoadedPages[last]) {this.readerEndReached=true;this.readerControlsHidden=false;}
+            if(root.scrollTop+root.clientHeight>=root.scrollHeight-60 && this.readerLoadedPages[last]) {this.readerEndReached=true;this.readerControlsHidden=false;this._marathonReachedBottom=true;this.startReaderMarathon();}
             // Store an offset within the current page, rather than a brittle total scrollTop.
             const page=root.querySelector(`[data-page="${this.readerPage}"]`);
             if(page && !this.readerLoading) {
@@ -133,15 +163,16 @@ window.readerControlsMixin = {
             this.readerDrawerOpen = !this.readerDrawerOpen;
             this.readerChapterSearch = ''; this.readerChapterLimit = 80;
         },
-        resetReaderControls() { this.readerDrawerOpen = false; this.readerFocus = false; this.readerChapterSearch = '';this.readerControlsHidden=false;clearTimeout(this._readerOffsetTimer);for(const image of this._readerPreloads?.values() || []) image.src='';this._readerPreloads?.clear(); },
-        saveReaderPreferences() {
+        resetReaderControls() {clearTimeout(this._readerIdleTimer);this.cancelReaderMarathon(); this.readerDrawerOpen = false; this.readerFocus = false; this.readerChapterSearch = '';this.readerControlsHidden=false;clearTimeout(this._readerOffsetTimer);for(const image of this._readerPreloads?.values() || []) image.src='';this._readerPreloads?.clear(); },
+        saveReaderPreferences(reobserve=true) {
             try { localStorage.setItem('ark-reader-preferences', JSON.stringify({ width: this.readerWidth, brightness:this.readerBrightness,
-                spacing:this.readerSpacing, mode:this.readingMode, direction:this.readingDirection,theme:this.readerTheme,autoHide:this.readerAutoHide }));
+                spacing:this.readerSpacing, mode:this.readingMode, direction:this.readingDirection,theme:this.readerTheme,autoHide:this.readerAutoHide,marathon:this.readerMarathon }));
                 if(this.readingWork) localStorage.setItem('ark-reader-work:'+this.readingWork.id,JSON.stringify({mode:this.readingMode,direction:this.readingDirection,spacing:this.readerSpacing}));
             } catch (_) {}
             if(!this.readerAutoHide) this.readerControlsHidden=false;
-            this.changeReadingMode();
+            if(reobserve!==false)this.changeReadingMode();
         }
     },
-    beforeUnmount() {this.resetReaderControls();}
+    mounted() {this._marathonVisibility=()=>{if(document.visibilityState==='hidden')this.cancelReaderMarathon();};document.addEventListener('visibilitychange',this._marathonVisibility);},
+    beforeUnmount() {this.resetReaderControls();document.removeEventListener('visibilitychange',this._marathonVisibility);}
 };

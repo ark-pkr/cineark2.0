@@ -363,6 +363,7 @@ window.readerMixin = {
         progressStorageKey() { return this.userSession?.user?.id ? 'ark-reading:' + this.userSession.user.id : 'ark-reading'; },
         readerKey(event) {
             if (!this.activeChapter || ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) return;
+            if(event.key.toLowerCase()==='h' && !event.ctrlKey && !event.metaKey && !event.altKey) {event.preventDefault();this.readerControlsHidden=!this.readerControlsHidden;return;}
             if (event.key === 'Escape') {
                 if (this.readerControlsHidden) { this.readerControlsHidden=false;return; }
                 if (this.readerFocus) { this.readerFocus = false; return; }

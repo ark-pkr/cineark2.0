@@ -677,6 +677,39 @@ body:has(.ark-catalog-overlay) { overflow:hidden; }
 .ark-rune-field.is-reading { mask-image:linear-gradient(90deg,#000,transparent max(0px,calc((100vw - var(--rune-reader-width,900px))/2 - 18px)),transparent calc(100% - max(0px,calc((100vw - var(--rune-reader-width,900px))/2 - 18px))),#000); }
 @media(max-width:700px) { .ark-reader .ark-pages { padding-block:140px 150px; scroll-padding-top:140px; } .ark-reader .ark-pages.paged .ark-paged-slot img { max-height:calc(100dvh - 290px); } .ark-reader-end { margin-inline:12px; } .ark-reader-end h2 { font-size:21px; } .ark-reader .ark-reader-navigation>button { min-height:44px; } }
 @media(prefers-reduced-motion:reduce) { .ark-reader .ark-reader-header,.ark-reader .ark-reader-navigation { transition:none; } }
+.ark-portal .ark-main-nav>button { color:#ebbbc9; font-size:12px; text-align:left; padding:12px 16px; border-radius:8px; }
+.ark-grimoire-overlay { z-index:12500; }
+.ark-grimoire-panel { max-width:1000px; }
+.ark-grimoire-panel>h2 { font-family:'Metal Mania',fantasy; font-size:42px; color:#fa708e; margin-top:8px; }
+.ark-grimoire-create { display:flex; align-items:end; gap:12px; padding:20px; background:#21101b; border:1px solid #7b314966; border-radius:14px; margin:24px 0; }
+.ark-grimoire-create label,.ark-grimoire-search { display:grid; gap:8px; font-size:12px; color:#d9b8c6; flex:1; }
+.ark-grimoire-create input,.ark-grimoire-search input { width:100%; }
+.ark-grimoire-create button { min-height:44px; }
+.ark-grimoire-collection { background:#160e16; border:1px solid #74314766; border-radius:14px; padding:18px; margin:18px 0; }
+.ark-grimoire-collection>summary { display:flex; align-items:center; gap:12px; min-height:44px; cursor:pointer; color:#f2cad8; }
+.ark-grimoire-collection>summary:focus-visible { outline:2px solid #ffb6c0; outline-offset:4px; }
+.ark-grimoire-collection>summary>strong { flex:1; font-size:18px; overflow-wrap:anywhere; }
+.ark-grimoire-collection>summary>span { color:#bba0ad; font-size:11px; }
+.ark-grimoire-collection>button { margin-top:18px; }
+.ark-grimoire-covers { display:grid; grid-template-columns:repeat(auto-fill,minmax(115px,1fr)); gap:16px; margin-top:20px; }
+.ark-grimoire-covers article { min-width:0; }
+.ark-grimoire-covers article>button:first-child { display:flex; flex-direction:column; width:100%; padding:0; border:0; background:transparent; text-align:left; }
+.ark-grimoire-covers img { width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:9px; }
+.ark-grimoire-covers strong { font-size:11px; line-height:1.6; margin-top:8px; overflow-wrap:anywhere; }
+.ark-grimoire-picker { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:280px; overflow:auto; margin-top:20px; }
+.ark-grimoire-picker label { display:flex; align-items:center; gap:10px; font-size:12px; padding:10px; min-height:44px; border:1px solid #ffffff0e; border-radius:8px; color:#d5bac7; }
+.ark-grimoire-picker input { width:18px; min-height:18px; padding:0; accent-color:#e54063; }
+.ark-work-grimoire-link { margin-top:10px; font-size:11px; }
+.ark-chapter-reactions { padding:22px 0; margin-top:20px; border-block:1px solid #84364c55; }
+.ark-chapter-reactions h3 { font-size:15px; font-weight:700; margin-bottom:14px; }
+.ark-chapter-reactions>div { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+.ark-reader .ark-chapter-reactions button { margin:0; font-size:11px; min-height:44px; border-radius:24px; }
+.ark-reader .ark-chapter-reactions button.is-selected { border-color:#fa668b; background:#6a1c36; color:#fff0f5; }
+.ark-chapter-reactions small { display:block; font-size:10px; color:#ae8b9e; margin-top:14px; }
+.ark-marathon-panel { padding:18px; margin-top:18px; border:1px solid #89375066; background:#2f112044; border-radius:12px; }
+.ark-marathon-panel label { display:flex; align-items:center; justify-content:center; gap:10px; font-size:13px; min-height:44px; }
+.ark-marathon-panel input { width:18px; min-height:18px; accent-color:#e54063; }
+@media(max-width:600px) { .ark-grimoire-create { flex-direction:column; align-items:stretch; padding:16px; } .ark-grimoire-picker { grid-template-columns:minmax(0,1fr); } .ark-grimoire-panel>h2 { font-size:34px; } }
 .ark-social-auth { margin-top:24px; }
 .ark-overlay .ark-google-button { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; min-height:46px; background:#fff; border:1px solid #dadce0; border-radius:10px; color:#202124; font-weight:600; }
 .ark-overlay .ark-google-button:hover { background:#f1f3f4; }

@@ -517,6 +517,8 @@ body:has(.ark-overlay) { overflow:hidden; }
 /* Reading hierarchy: quiet surfaces, one clear primary action. */
 .ark-chapter-focused { --ark-muted:#bdaeb4; }
 .ark-chapters-heading h2 { overflow-wrap:anywhere; letter-spacing:-.035em; }
+.ark-chapter-focused>.ark-synopsis { padding:16px 20px; margin:0 0 22px; border-left-width:2px; background:#170f1480; }
+.ark-chapter-focused>.ark-synopsis p { white-space:pre-line; font-size:13px; line-height:1.8; margin-top:8px; }
 .ark-chapter-focused .ark-chapter { background:#131013; border-color:#ffffff0b; box-shadow:none; gap:10px; }
 .ark-chapter-focused .ark-chapter-open { min-height:48px; padding:10px 8px; line-height:1.65; font-size:13px; }
 .ark-chapter-focused .ark-chapter-open small { color:#b6a5ae; font-size:11px; }

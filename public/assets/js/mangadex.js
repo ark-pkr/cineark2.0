@@ -59,8 +59,8 @@ window.mangadexMixin = {
             this.dexTotal = 0; this.dexLimited = false; this.dexVisibleLimit = 100;
         },
         async queryMangaDex(loader, apply) {
-            if (!this.userSession || !this.readingWork) return null;
-            this.cancelMangaDex(); const request = this._dexRequest, workId = this.readingWork.id, userId = this.userSession.user.id;
+            if (!this.readingWork) return null;
+            this.cancelMangaDex(); const request = this._dexRequest, workId = this.readingWork.id, userId = this.userSession?.user?.id;
             const current = () => request === this._dexRequest && this.readingWork?.id === workId && this.userSession?.user?.id === userId;
             const controller = this._dexController = new AbortController(); this.dexLoading = true; this.dexError = '';
             try { const data = await loader(controller.signal); if (!current()) return null; apply(data); return data; }
@@ -76,7 +76,7 @@ window.mangadexMixin = {
             if (this.dexSelected && this.dexChapters.length) return this.dexHasMore ? this.loadDexChapters(true, true) : undefined;
             if (!this.dexSelected) {
                 try {
-                    const links = JSON.parse(localStorage.getItem('ark-mangadex-links:' + this.userSession.user.id) || '{}');
+                    const links = JSON.parse(localStorage.getItem('ark-mangadex-links:' + (this.userSession?.user?.id || 'guest')) || '{}');
                     const saved = links[this.readingWork.id];
                     if (saved && /^[0-9a-f-]{36}$/i.test(saved.id)) { this.dexSelected = saved; this.dexLanguage = saved.language || 'pt-br'; }
                 } catch (_) {}
@@ -101,18 +101,18 @@ window.mangadexMixin = {
             this.rememberDexManga(); return this.loadDexChapters();
         },
         rememberDexManga() {
-            if (!this.dexSelected || !this.readingWork || !this.userSession) return;
+            if (!this.dexSelected || !this.readingWork) return;
             try {
-                const key = 'ark-mangadex-links:' + this.userSession.user.id;
+                const key = 'ark-mangadex-links:' + (this.userSession?.user?.id || 'guest');
                 const links = JSON.parse(localStorage.getItem(key) || '{}');
                 links[this.readingWork.id] = { id: this.dexSelected.id, title: this.dexSelected.title, language: this.dexLanguage };
                 localStorage.setItem(key, JSON.stringify(links));
             } catch (_) {}
         },
         loadDexChapters(append = false, all = !append) {
-            if (!this.dexSelected || !this.userSession || !this.readingWork) return Promise.resolve();
+            if (!this.dexSelected || !this.readingWork) return Promise.resolve();
             this.cancelMangaDex();
-            const id = this.dexSelected.id, language = this.dexLanguage, workId = this.readingWork.id, userId = this.userSession.user.id;
+            const id = this.dexSelected.id, language = this.dexLanguage, workId = this.readingWork.id, userId = this.userSession?.user?.id;
             const request = this._dexRequest, controller = this._dexController = new AbortController();
             const current = () => !controller.signal.aborted && request === this._dexRequest && userId === this.userSession?.user?.id &&
                 workId === this.readingWork?.id && id === this.dexSelected?.id && language === this.dexLanguage;

@@ -91,15 +91,22 @@ test('confirmation redirect preserves deployment subdirectories and removes sess
     assert.throws(() => redirect(), /HTTP/);
 });
 
-test('visitors can view work details but must sign in to read chapters', async () => {
-    const { app } = setup();
+test('visitors can open published chapters and save guest progress without login or admin access', async () => {
+    const { app, storage } = setup();
+    const chapter = {id:'chapter',number:1,source:'remote',published:true};
+    app.cloudAPI = () => ({chapters:async()=>[chapter], pages:async()=>[{width:100,height:200}], signedURLs:async()=>['https://example.com/page.png']});
+    app.$nextTick = async()=>{};
+    app.observePages = ()=>{};
     await app.addChapter();
     await app.deleteChapter({ id: 'chapter' });
     await app.openWork({ id: 'work' });
     assert.equal(app.readingWork.id, 'work');
-    await app.openChapter({id:'chapter',source:'remote',published:true});
-    assert.equal(app.authView, 'login');
-    assert.equal(app.activeChapter, null);
+    await app.openChapter(chapter);
+    assert.equal(app.authView, null);
+    assert.equal(app.activeChapter.id, 'chapter');
+    assert.equal(JSON.parse(storage.get('ark-reading')).work.chapterId,'chapter');
+    assert.equal(app.isAdmin,false);
+    assert.equal(storage.has('ark-reading:undefined'),false);
 });
 
 test('inline application JavaScript parses', () => {

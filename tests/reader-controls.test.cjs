@@ -17,6 +17,14 @@ function setup() {
 }
 const dex = (id, number, group = 'A') => ({ id, number, group, volume: '1', source: 'mangadex', published: true, mangaId: 'manga', language: 'pt-br' });
 
+test('guest can search editions and load chapter feeds without authentication', async () => {
+    const app = setup();app.userSession=null;app.dexQuery='Berserk';
+    app._mangaDexAPI={search:async()=>({data:[{id:'manga',title:'Berserk'}]}),feed:async()=>({data:[dex('one','1')],nextOffset:1,hasMore:false,total:1})};
+    await app.searchMangaDex();assert.equal(app.dexResults.length,1);
+    await app.selectDexManga(app.dexResults[0]);assert.equal(app.dexChapters.length,1);
+    assert.equal(app.dexError,'');
+});
+
 test('full chapter search follows every page, deduplicates IDs and never downloads chapter images', async () => {
     const app = setup(); const offsets = [];
     app._mangaDexAPI = { feed: async (id, lang, offset) => {

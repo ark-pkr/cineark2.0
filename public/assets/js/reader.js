@@ -48,13 +48,9 @@ window.readerMixin = {
             finally { if (userId === this.userSession?.user?.id && request === this._workRequest) this.readerBusy = false; }
         },
         async openWork(item) {
-            if (!this.userSession) {
-                this.readingWork=item;this.chapters=[];this.localChapters=[];this.readerError='';this.resetMangaDex?.(item);
-                return;
-            }
             if (this.readerBusy) return;
             const request = this._workRequest = (this._workRequest || 0) + 1;
-            const userId = this.userSession.user.id;
+            const userId = this.userSession?.user?.id;
             this.readingWork = item; this.readerError = ''; this.chapters = []; this.localChapters = []; this.readerBusy = true;
             this.resetMangaDex?.(item);
             this.chapterFiles = []; this.chapterTitle = ''; this.uploadStatus = '';
@@ -186,10 +182,9 @@ window.readerMixin = {
             if (chapter) this.openChapter(chapter, saved?.chapterId === chapter.id ? saved.page : 0);
         },
         async openChapter(chapter, page = 0) {
-            if (!this.userSession) { this.openAuth('login'); return; }
             if (this.readerBusy || !chapter || chapter.source === 'remote' && !chapter.published) return;
             const request = this._chapterRequest = (this._chapterRequest || 0) + 1;
-            const userId = this.userSession.user.id, workId = this.readingWork?.id;
+            const userId = this.userSession?.user?.id, workId = this.readingWork?.id;
             this.readerBusy = true; this.readerError = '';
             try {
                 let urls, pages;

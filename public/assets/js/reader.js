@@ -68,6 +68,10 @@ window.readerMixin = {
             } finally {
                 if (request === this._workRequest) this.readerBusy = false;
             }
+            if (request === this._workRequest && userId === this.userSession?.user?.id &&
+                this.readingWork?.id === item.id && !this.readerError && !this.chapters.some(chapter => chapter.published)) {
+                this.setChapterSource?.('mangadex');
+            }
             if (this.isAdmin) {
                 try {
                     const all = await chapterStore('readonly', store => store.getAll());

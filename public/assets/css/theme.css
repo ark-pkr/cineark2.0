@@ -558,6 +558,20 @@ body:has(.ark-overlay) { overflow:hidden; }
   .ark-reader-settings input[type=range] { min-height:44px; width:100%; }
   .ark-reader-preferences[open] .ark-reader-settings { max-height:30dvh; }
 }
+.ark-work-intro { display:grid; grid-template-columns:180px minmax(0,1fr); gap:32px; padding:28px; margin:12px 0 28px; border:1px solid #77314355; border-radius:18px; background:radial-gradient(ellipse at top left,#5b142844,transparent 70%),#110d11; }
+.ark-work-cover { width:180px; aspect-ratio:2/3; object-fit:cover; border-radius:12px; box-shadow:0 12px 30px #0008; }
+.ark-work-intro-content { min-width:0; }
+.ark-work-intro h2 { font-size:clamp(26px,3vw,38px); font-weight:800; line-height:1.2; letter-spacing:-.035em; overflow-wrap:anywhere; margin:8px 0 14px; }
+.ark-work-type { display:inline-block; font-size:10px; padding:4px 9px; border-radius:5px; background:#721e3644; color:#f3a6b8; text-transform:uppercase; letter-spacing:.1em; }
+.ark-work-story-preview { margin-top:20px; }
+.ark-work-story-preview h3 { font-size:12px; font-weight:700; color:#f1c4cf; }
+.ark-work-story-preview p,.ark-work-story p { font-size:13px; line-height:1.8; color:#c5b6bd; white-space:pre-line; margin-top:8px; }
+.ark-work-story-preview p { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.ark-work-intro-content:has(.ark-work-story[open]) .ark-work-story-preview { display:none; }
+.ark-chapter-focused .ark-work-story>summary { font-size:11px; color:#f38aa0; min-height:36px; }
+.ark-work-quick-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; align-items:center; }
+.ark-work-quick-actions>span { font-size:11px; color:#c5b6bd; overflow-wrap:anywhere; }
+@media(max-width:600px) { .ark-work-intro { grid-template-columns:90px minmax(0,1fr); gap:16px; padding:18px 14px; } .ark-work-cover { width:90px; } .ark-work-intro h2 { font-size:24px; } .ark-work-intro .ark-eyebrow { font-size:8px; } .ark-work-story-preview,.ark-work-story,.ark-work-quick-actions { margin-left:-106px; } .ark-work-story-preview { margin-top:30px; } .ark-work-quick-actions .ark-btn { min-height:44px; font-size:11px; } }
 .ark-social-auth { margin-top:24px; }
 .ark-overlay .ark-google-button { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; min-height:46px; background:#fff; border:1px solid #dadce0; border-radius:10px; color:#202124; font-weight:600; }
 .ark-overlay .ark-google-button:hover { background:#f1f3f4; }

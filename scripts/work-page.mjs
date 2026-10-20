@@ -40,7 +40,7 @@ export function createWorkPageHandler({settings,loadTemplate,fetcher=fetch}) {
         try {
             const endpoint=new URL('/rest/v1/itens_catalogo',settings.supabaseUrl);
             endpoint.searchParams.set('slug','eq.'+match[1]);endpoint.searchParams.set('limit','1');
-            endpoint.searchParams.set('select','id,slug,title,type,poster,synopsis,author,genres,reading_language,totalcount,mal_id');
+            endpoint.searchParams.set('select','id,slug,title,type,poster,synopsis,author,genres,reaction_config,reading_language,totalcount,mal_id');
             // Public metadata only. Never forward reader cookies or authorization headers.
             const response=await fetcher(endpoint,{headers:{apikey:settings.supabaseAnonKey,Accept:'application/json'},signal:AbortSignal.timeout(8000)});
             if(!response.ok)throw Error('Metadata unavailable');

@@ -4,7 +4,7 @@ window.readerControlsMixin = {
         try { saved = JSON.parse(localStorage.getItem('ark-reader-preferences') || '{}') || {}; } catch (_) {}
         return { readerDrawerOpen: false, readerChapterSearch: '', readerChapterLimit: 80, readerFocus: false, readerNavigating: false,
             readerControlsHidden:false, readerAutoHide:saved.autoHide!==false, readerTheme:['black','gray','sepia'].includes(saved.theme)?saved.theme:'black',
-            readerHint:false, readerEndReached:false, readerFailedPages:{}, readerLoadedPages:{}, readerRetries:{},
+            readerHint:false, readerEndReached:false,readerCompletionConfirmed:false, readerFailedPages:{}, readerLoadedPages:{}, readerRetries:{},readerRetryingPages:{},readerRetryAllBusy:false,
             readerMarathon:saved.marathon===true,readerMarathonRemaining:0,readerMarathonCancelled:false,
             readerWidth: ['680', '900', '1100', 'full'].includes(saved.width) ? saved.width : '900',
             readerBrightness: Math.max(50,Math.min(100,Number(saved.brightness)||100)),
@@ -13,12 +13,15 @@ window.readerControlsMixin = {
             readingDirection: saved.direction === 'rtl' ? 'rtl' : 'ltr' };
     },
     watch: {
-        readerPage() { this._readerPageOffset=0;this.preloadReaderPages(); if(this.readingMode==='paged') this.readerEndReached=this.readerPage===this.pageURLs.length-1 && !!this.readerLoadedPages[this.readerPage];else if(this.readerPage<this.pageURLs.length-1) this.readerEndReached=false; },
+        readerPage() { this._readerPageOffset=0;this.preloadReaderPages(); if(this.readingMode==='paged'){this.readerEndReached=this.readerPage===this.pageURLs.length-1 && !!this.readerLoadedPages[this.readerPage];if(this.readerEndReached)this.readerCompletionConfirmed=true;}else if(this.readerPage<this.pageURLs.length-1) this.readerEndReached=false; },
         activeChapter(chapter) { if(chapter) this.prepareImmersiveReader(); },
         readerEndReached(value) {if(value)this.startReaderMarathon();else this.cancelReaderMarathon(false);},
+        readerCompletionConfirmed(value) {if(value)this.markChapterRead?.();},
+        readerLoading(value) {if(!value && this.readerCompletionConfirmed)this.markChapterRead?.();},
         readerMarathon(value) {this.cancelReaderMarathon(false);this.readerMarathonCancelled=false;if(value && this.readerEndReached)this.startReaderMarathon();}
     },
     computed: {
+        readerFailedCount() {return Object.values(this.readerFailedPages).filter(Boolean).length;},
         readerImageWidth() { return this.readerWidth === 'full' ? '100%' : this.readerWidth + 'px'; },
         readerPercentage() { return this.pageURLs.length ? Math.round((this.readerPage + 1) / this.pageURLs.length * 100) : 0; },
         readerChapterSequence() {
@@ -46,12 +49,26 @@ window.readerControlsMixin = {
         }
     },
     methods: {
+        runReaderAction(action) {
+            const menu=this.$refs.readerActions;if(menu){menu.open=false;menu.querySelector('summary')?.focus({preventScroll:true});}
+            if(action==='moments')this.openReaderMoments();
+            else if(action==='report')this.openReaderProblem();
+            else if(action==='focus'){this.readerFocus=true;this.readerDrawerOpen=false;}
+            else if(action==='fullscreen')this.readerFullscreen();
+            else if(action==='hide')this.readerControlsHidden=true;
+        },
+        readerEagerPage(index) {const economy=typeof navigator!=='undefined' && navigator.connection?.saveData;return economy?index===this.readerPage:index>=this.readerPage-1 && index<=this.readerPage+2;},
+        async locateCurrentReaderChapter() {
+            this.readerChapterSearch='';const index=this.readingChapters.findIndex(chapter=>chapter.id===this.activeChapter?.id);
+            this.readerChapterLimit=Math.max(80,index+1);await this.$nextTick();
+            const button=document.querySelector('.ark-reader-chapter-list [aria-current="true"]');button?.scrollIntoView({block:'center'});button?.focus({preventScroll:true});
+        },
         checkReaderCompletion(root=this.$refs.readerScroll) {
             const last=this.pageURLs.length-1;
             if(!root || last<0 || !this.readerLoadedPages[last] || this.readerFailedPages[last])return;
-            if(this.readingMode==='paged'){if(this.readerPage===last)this.readerEndReached=true;return;}
+            if(this.readingMode==='paged'){if(this.readerPage===last){this.readerEndReached=true;this.readerCompletionConfirmed=true;}return;}
             const page=root.querySelector(`[data-page="${last}"]`);
-            if(page && page.getBoundingClientRect().bottom<=root.getBoundingClientRect().bottom-40){this.readerEndReached=true;this.readerControlsHidden=false;}
+            if(page && page.getBoundingClientRect().bottom<=root.getBoundingClientRect().bottom-40){this.readerEndReached=true;this.readerCompletionConfirmed=true;this.readerControlsHidden=false;}
         },
         async revealChapterReactions() {
             this.cancelReaderMarathon();this.readerEndReached=true;this.readerControlsHidden=false;
@@ -65,7 +82,7 @@ window.readerControlsMixin = {
             if(!this.readerAutoHide || this.readerFocus || this.readerEndReached)return;
             const chapterId=this.activeChapter.id;
             this._readerIdleTimer=setTimeout(()=>{
-                if(this.activeChapter?.id!==chapterId || !this.readerAutoHide || this.readerDrawerOpen || this.pageTranslationOpen || this.readerEndReached || this.$refs.readerPreferences?.open)return;
+                if(this.activeChapter?.id!==chapterId || !this.readerAutoHide || this.readerDrawerOpen || this.pageTranslationOpen || this.readerEndReached || this.$refs.readerPreferences?.open || this.$refs.readerActions?.open)return;
                 if(typeof document!=='undefined' && document.activeElement?.closest?.('.ark-reader-header,.ark-reader-navigation'))return;
                 this.readerControlsHidden=true;
             },2500);
@@ -84,7 +101,7 @@ window.readerControlsMixin = {
         },
         prepareImmersiveReader() {
             this.cancelReaderMarathon(false);this.readerMarathonCancelled=false;this._marathonReachedBottom=false;
-            this.readerControlsHidden=false;this.readerEndReached=false;this.readerFailedPages={};this.readerLoadedPages={};this.readerRetries={};this._readerLastScroll=0;
+            this.readerControlsHidden=false;this.readerEndReached=false;this.readerCompletionConfirmed=false;this.readerFailedPages={};this.readerLoadedPages={};this.readerRetries={};this.readerRetryingPages={};this.readerRetryAllBusy=false;this._readerLastScroll=0;
             this._readerPreloads=new Map();
             let preferences={};
             try { preferences=JSON.parse(localStorage.getItem('ark-reader-work:'+this.readingWork.id)||'{}') || {};this.readerHint=!localStorage.getItem('ark-reader-hint-seen'); }catch(_){}
@@ -95,6 +112,7 @@ window.readerControlsMixin = {
         },
         dismissReaderHint() { this.readerHint=false;try{localStorage.setItem('ark-reader-hint-seen','1');}catch(_){} },
         readerCanvasClick(event) {
+            if(this.$refs.readerActions?.open){this.$refs.readerActions.open=false;return;}
             if(event.target.closest?.('button,a,input,select,summary') || this.readerDrawerOpen) return;
             if(typeof window.getSelection==='function' && window.getSelection()?.toString()) return;
             const rect=event.currentTarget.getBoundingClientRect(),x=(event.clientX-rect.left)/rect.width;
@@ -106,7 +124,7 @@ window.readerControlsMixin = {
             const root=event.target,delta=root.scrollTop-(this._readerLastScroll || 0);
             if(Math.abs(delta)>12) {
                 if(delta<0 && this.readerMarathonRemaining)this.cancelReaderMarathon();
-                if(this.readerAutoHide && !this.readerDrawerOpen && !this.pageTranslationOpen && !this.$refs.readerPreferences?.open) this.readerControlsHidden=delta>0 && root.scrollTop>100;
+                if(this.readerAutoHide && !this.readerDrawerOpen && !this.pageTranslationOpen && !this.$refs.readerPreferences?.open && !this.$refs.readerActions?.open) this.readerControlsHidden=delta>0 && root.scrollTop>100;
                 this._readerLastScroll=root.scrollTop;
             }
             const last=this.pageURLs.length-1;
@@ -121,6 +139,7 @@ window.readerControlsMixin = {
         },
         preloadReaderPages() {
             if(typeof Image==='undefined' || !this.pageURLs.length) return;
+            if(typeof navigator!=='undefined' && navigator.connection?.saveData)return;
             this._readerPreloads ||= new Map();
             const start=this.readerPage,end=Math.min(start+2,this.pageURLs.length-1);
             for(const [index,image] of this._readerPreloads) if(index<start || index>end) {image.src='';this._readerPreloads.delete(index);}
@@ -131,8 +150,20 @@ window.readerControlsMixin = {
             }
         },
         readerPageFailed(index) { this.readerFailedPages[index]=true;delete this.readerLoadedPages[index]; },
+        async retryFailedReaderPages() {
+            if(this.readerRetryAllBusy || this.readerBusy)return;
+            const chapter=this.activeChapter,uid=this.userSession?.user?.id;
+            const queue=Object.keys(this.readerFailedPages).filter(key=>this.readerFailedPages[key]).map(Number);
+            this.readerRetryAllBusy=true;
+            const current=()=>this.activeChapter===chapter && this.userSession?.user?.id===uid;
+            const worker=async()=>{while(queue.length && current()){const index=queue.shift();await this.retryReaderPage(index);}};
+            try{await Promise.all([worker(),worker()]);}finally{if(current())this.readerRetryAllBusy=false;}
+        },
         async retryReaderPage(index) {
-            if(!Number.isInteger(index) || index<0 || index>=this.pageURLs.length || this.readerBusy) return;
+            if(!Number.isInteger(index) || index<0 || index>=this.pageURLs.length || this.readerBusy || this.readerRetryingPages[index]) return;
+            this.readerRetryingPages[index]=true;
+            const retryChapter=this.activeChapter;
+            try {
             delete this.readerFailedPages[index];this.readerRetries[index]=(this.readerRetries[index]||0)+1;
             const chapter=this.activeChapter,userId=this.userSession?.user?.id;
             if(chapter?.source==='remote') {
@@ -141,10 +172,12 @@ window.readerControlsMixin = {
                     if(this.activeChapter===chapter && userId===this.userSession?.user?.id) this.pageURLs[index]=urls[0];
                 }catch(_) {if(this.activeChapter===chapter) this.readerFailedPages[index]=true;}
             }
+            }finally{if(this.activeChapter===retryChapter)delete this.readerRetryingPages[index];}
         },
         async readerPageReady(event,index) {
             if(event.target.dataset?.chapter && event.target.dataset.chapter!==this.activeChapter?.id) return;
             const chapter=this.activeChapter,root=this.$refs.readerScroll;
+            if(!Object.values(this.readerLoadedPages).some(Boolean))window.ArkUX?.chapterPainted();
             const anchor=root?.querySelector(`[data-page="${this.readerPage}"]`),anchorTop=anchor?.getBoundingClientRect().top;
             this.readerImageLoaded(event,index);this.readerLoadedPages[index]=true;delete this.readerFailedPages[index];
             if(this.readingMode==='paged' && index===this.pageURLs.length-1) this.readerEndReached=true;
@@ -153,7 +186,7 @@ window.readerControlsMixin = {
             const pending=this._readerRestore;
             if(pending && pending.chapterId===this.activeChapter?.id && pending.page===index) {
                 const page=root?.querySelector(`[data-page="${index}"]`);
-                if(root && page) {root.scrollTop+=page.getBoundingClientRect().top-root.getBoundingClientRect().top+page.clientHeight*pending.offset;this._readerLastScroll=root.scrollTop;this._readerRestore=null;}
+                if(root && page) {root.scrollTop+=page.getBoundingClientRect().top-root.getBoundingClientRect().top+page.clientHeight*pending.offset;this._readerLastScroll=root.scrollTop;this._readerPageOffset=pending.offset;this._readerRestore=null;}
             } else if(this.readingMode==='vertical' && index<this.readerPage && anchor && Number.isFinite(anchorTop)) {
                 root.scrollTop+=anchor.getBoundingClientRect().top-anchorTop;
             }
@@ -172,9 +205,10 @@ window.readerControlsMixin = {
             if (chapter.id !== this.activeChapter?.id) await this.openChapter(chapter);
             if (chapter.id === this.activeChapter?.id) this.readerDrawerOpen = false;
         },
-        toggleReaderDrawer() {
+        async toggleReaderDrawer() {
             this.readerDrawerOpen = !this.readerDrawerOpen;
             this.readerChapterSearch = ''; this.readerChapterLimit = 80;
+            if(this.readerDrawerOpen)await this.locateCurrentReaderChapter();
         },
         resetReaderControls() {clearTimeout(this._readerIdleTimer);this.cancelReaderMarathon(); this.readerDrawerOpen = false; this.readerFocus = false; this.readerChapterSearch = '';this.readerControlsHidden=false;clearTimeout(this._readerOffsetTimer);for(const image of this._readerPreloads?.values() || []) image.src='';this._readerPreloads?.clear(); },
         saveReaderPreferences(reobserve=true) {

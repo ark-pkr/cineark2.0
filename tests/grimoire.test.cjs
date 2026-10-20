@@ -40,3 +40,35 @@ test('failed cloud write retains the previous collection contents',async()=>{
     app.grimoires=[{id:'collection',name:'Original',work_ids:[]}];await app.toggleCollectionWork(app.grimoires[0],{id:'work'});
     assert.equal(app.grimoires[0].work_ids.length,0);assert.match(app.communityMessage,/Não foi possível/);
 });
+
+test('genre profiles use matching emotions and preserve a previous reaction',async()=>{
+    const {app}=setup();
+    app.readingWork.genres=['Romance'];assert.equal(app.reactionOptions[0].id,'fofo');
+    await app.reactToChapter('fofo');app.readingWork.genres=['Terror'];
+    assert.equal(app.reactionOptions[0].id,'tenso');assert.ok(app.reactionOptions.some(r=>r.id==='fofo'));
+    await app.reactToChapter('fofo');assert.equal(app.activeReaction,'');
+    app.readingWork.genres=['Comédia'];assert.equal(app.reactionOptions[0].id,'engracado');
+});
+
+test('work overrides keep semantic IDs and persist new guest reactions',async()=>{
+    const {app}=setup();app.readingWork.reaction_config={profile:'romance',labels:{fofo:'Meu casal!'}};
+    assert.equal(app.reactionOptions[0].label,'Meu casal!');await app.reactToChapter('fofo');
+    app.resetGrimoireAccount();assert.equal(app.activeReaction,'fofo');
+    app.readingWork.reaction_config={profile:'unknown',labels:{epico:{bad:true}}};
+    assert.equal(app.reactionOptions[0].id,'epico');assert.equal(typeof app.reactionOptions[0].label,'string');
+});
+
+test('community counts keep chapters separate and reject a late response',async()=>{
+    const pending=[];const {app}=setup({from:()=>({select:()=>({eq(){return this;},then(resolve){pending.push(resolve);}})})});
+    const first=app.loadReactionCounts();await Promise.resolve();
+    app.activeChapter={id:'other',source:'remote'};const second=app.loadReactionCounts();await Promise.resolve();
+    pending[1]({data:[{reaction:'epico',total:7}]});await second;
+    pending[0]({data:[{reaction:'epico',total:99}]});await first;
+    assert.equal(app.reactionCounts.epico,7);assert.equal(app.reactionCountsState,'ready');
+});
+
+test('unavailable counts never become fabricated zeroes',async()=>{
+    const {app}=setup({from:()=>({select:()=>({eq(){return this;},then(resolve){resolve({error:new Error('offline')});}})})});
+    await app.loadReactionCounts();assert.equal(app.reactionCountsState,'error');
+    app.activeChapter.source='local';await app.loadReactionCounts();assert.equal(app.reactionCountsState,'local');
+});

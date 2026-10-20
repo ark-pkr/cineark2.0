@@ -1,15 +1,50 @@
+const ARK_REACTIONS = [
+    {id:'epico',label:'Épico',icon:'fa-fire',emoji:'🔥'},
+    {id:'surpreendente',label:'Surpreendente',icon:'fa-bolt',emoji:'😮'},
+    {id:'emocionante',label:'Emocionante',icon:'fa-heart',emoji:'🥹'},
+    {id:'fofo',label:'Muito fofo',emoji:'🥰'},
+    {id:'tenso',label:'Que tensão!',emoji:'😨'},
+    {id:'engracado',label:'Ri demais',emoji:'😂'}
+];
+const ARK_REACTION_PROFILES = {acao:['epico','surpreendente','emocionante'],romance:['fofo','emocionante','surpreendente'],terror:['tenso','surpreendente','emocionante'],comedia:['engracado','surpreendente','fofo']};
 window.grimoireMixin = {
-    data() { return { showGrimoire:false, grimoires:[], grimoireName:'', grimoireSearch:'', communityBusy:false, communityLoading:false, communityMessage:'', reactionMessage:'',reactionMessageKey:'',chapterReactions:{}, reactionOptions:[{id:'epico',label:'Épico',icon:'fa-fire'},{id:'surpreendente',label:'Surpreendente',icon:'fa-bolt'},{id:'emocionante',label:'Emocionante',icon:'fa-heart'}] }; },
+    data() { return { showGrimoire:false, grimoires:[], grimoireName:'', grimoireSearch:'', communityBusy:false, communityLoading:false, communityMessage:'', reactionMessage:'',reactionMessageKey:'',chapterReactions:{}, chapterReactionCounts:{},reactionCountsKey:'',reactionCountsState:'' }; },
     computed: {
+        reactionOptions() {return this.workReactionOptions(this.readingWork);},
+        reactionCounts() {return this.reactionCountsKey===this.activeReactionKey?this.chapterReactionCounts:{};},
         grimoireCatalog() { const q=window.ArkDiscovery.normalize(this.grimoireSearch);return this.catalog.filter(work=>window.ArkDiscovery.normalize(work.title).includes(q)).slice(0,80); },
         activeReactionKey() { return this.activeChapter && this.readingWork ? [this.readingWork.id,this.activeChapter.source,this.activeChapter.id].join(':') : ''; },
         activeReaction() { return this.chapterReactions[this.activeReactionKey] || ''; },
         activeReactionMessage() {return this.reactionMessageKey===this.activeReactionKey?this.reactionMessage:'';}
     },
     watch: {
+        activeReactionKey() {this.reactionCountsKey='';this.reactionCountsState='';if(this.readerEndReached)this.loadReactionCounts();},
+        readerEndReached(value) {if(value)this.loadReactionCounts();},
         userSession(next,previous) { if(next?.user?.id!==previous?.user?.id) this.resetGrimoireAccount(); }
     },
     methods: {
+        workReactionOptions(work) {
+            const config=work?.reaction_config || {};
+            const genres=window.ArkDiscovery.normalize((work?.genres || []).join(' '));
+            const automatic=/terror|horror|suspense/.test(genres)?'terror':/romance/.test(genres)?'romance':/comedia|comedy/.test(genres)?'comedia':'acao';
+            const profile=ARK_REACTION_PROFILES[config.profile]?config.profile:automatic;
+            const ids=[...ARK_REACTION_PROFILES[profile]];
+            const saved=work?.id===this.readingWork?.id?this.activeReaction:'';
+            if(saved && !ids.includes(saved) && ARK_REACTIONS.some(r=>r.id===saved))ids.push(saved);
+            return ids.map(id=>{const option=ARK_REACTIONS.find(r=>r.id===id);return {...option,label:typeof config.labels?.[id]==='string' && config.labels[id].trim()?config.labels[id].trim().slice(0,32):option.label};});
+        },
+        async loadReactionCounts() {
+            const key=this.activeReactionKey,chapter=this.activeChapter,work=this.readingWork;
+            const request=this._reactionCountsRequest=(this._reactionCountsRequest || 0)+1;
+            this.reactionCountsKey=key;this.chapterReactionCounts={};this.reactionCountsState='loading';
+            if(!key || !['remote','mangadex'].includes(chapter?.source)){this.reactionCountsState='local';return;}
+            try {
+                const {data,error}=await _supabase.from('ark_chapter_reaction_counts').select('reaction,total').eq('work_id',work.id).eq('source',chapter.source).eq('chapter_id',String(chapter.id));
+                if(error)throw error;
+                if(request!==this._reactionCountsRequest || key!==this.activeReactionKey)return;
+                this.chapterReactionCounts=Object.fromEntries(data.map(row=>[row.reaction,Number(row.total)]));this.reactionCountsState='ready';
+            }catch(_){if(request===this._reactionCountsRequest && key===this.activeReactionKey)this.reactionCountsState='error';}
+        },
         communityStorageKey() { return 'ark-grimoire:'+ (this.userSession?.user?.id || 'guest'); },
         persistGrimoire() {
             try {localStorage.setItem(this.communityStorageKey(),JSON.stringify({collections:this.grimoires,reactions:this.chapterReactions}));return true;}
@@ -21,7 +56,7 @@ window.grimoireMixin = {
             try {
                 const saved=JSON.parse(localStorage.getItem(this.communityStorageKey()) || '{}');
                 this.grimoires=Array.isArray(saved.collections)?saved.collections.filter(c=>typeof c.id==='string' && typeof c.name==='string' && Array.isArray(c.work_ids)).slice(0,100):[];
-                this.chapterReactions=saved.reactions && typeof saved.reactions==='object' && !Array.isArray(saved.reactions)?Object.fromEntries(Object.entries(saved.reactions).filter(([,v])=>['epico','surpreendente','emocionante'].includes(v))):{};
+                this.chapterReactions=saved.reactions && typeof saved.reactions==='object' && !Array.isArray(saved.reactions)?Object.fromEntries(Object.entries(saved.reactions).filter(([,v])=>ARK_REACTIONS.some(r=>r.id===v))):{};
             }catch(_){}
             clearTimeout(this._grimoireLoadTimer);
             if(this.userSession) this._grimoireLoadTimer=setTimeout(()=>this.loadGrimoire(),0);
@@ -85,6 +120,7 @@ window.grimoireMixin = {
                 }
                 if(uid!==this.userSession?.user?.id || epoch!==this._grimoireEpoch)return;
                 if(remove)delete this.chapterReactions[key];else this.chapterReactions[key]=reaction;
+                if(uid)this.loadReactionCounts();
                 const cached=this.persistGrimoire();this.reactionMessage=uid || cached ? (remove?'Reação removida.':'Sua reação foi salva.'):'O navegador não permitiu salvar sua reação. Ela ficará disponível apenas enquanto esta página estiver aberta.';
             }catch(_){if(uid===this.userSession?.user?.id && epoch===this._grimoireEpoch)this.reactionMessage='Não foi possível salvar sua reação. Tente novamente.';}
             finally{if(uid===this.userSession?.user?.id && epoch===this._grimoireEpoch)this.communityBusy=false;}

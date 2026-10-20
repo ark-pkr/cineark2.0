@@ -11,9 +11,9 @@ window.ArkCloudReader = class {
         }
     }
     async chapters(workId) {
-        const rows = await this.rows('ark_chapters', 'id,work_id,number,title,published,ark_chapter_pages(count)', ['work_id', workId], 'number');
+        const rows = await this.rows('ark_chapters', 'id,work_id,number,title,published,content_revision,content_updated_at,ark_chapter_pages(count)', ['work_id', workId], 'number');
         return rows.map(row => ({ id: row.id, workId: String(row.work_id), number: Number(row.number),
-            title: row.title, published: row.published, source: 'remote', pageCount: row.ark_chapter_pages?.[0]?.count || 0 }));
+            title: row.title, contentRevision:Number(row.content_revision || 1),contentUpdatedAt:row.content_updated_at, published: row.published, source: 'remote', pageCount: row.ark_chapter_pages?.[0]?.count || 0 }));
     }
     async pages(chapterId) {
         return this.rows('ark_chapter_pages', 'page_index,storage_path,width,height', ['chapter_id', chapterId], 'page_index');

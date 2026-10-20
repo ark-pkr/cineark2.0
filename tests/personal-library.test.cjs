@@ -2,13 +2,27 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
 function setup(client={}) {
- const c={window:{},_supabase:client,setTimeout:()=>0,clearTimeout(){}};vm.createContext(c);
+ const c={window:{},document:{querySelectorAll:()=>[]},_supabase:client,setTimeout:()=>0,clearTimeout(){}};vm.createContext(c);
  vm.runInContext(fs.readFileSync('public/assets/js/personal-library.js','utf8'),c);
  const mixin=c.window.personalLibraryMixin;
  const app={...mixin.data(),...mixin.methods,userSession:{user:{id:'a'}},readingWork:{id:'w'},pageURLs:[],openAuth(view){this.opened=view;}};
  for(const [key,fn] of Object.entries(mixin.computed))Object.defineProperty(app,key,{get:()=>fn.call(app)});
  return app;
 }
+
+test('saved chapter badges distinguish editions and preserve the saved page',()=>{
+ const app=setup();app.readingProgress={w:{chapterId:'one',page:7},'mangadex:w':{chapterId:'two',page:2}};
+ assert.equal(app.chapterSavedPage({id:'one',source:'remote'}),8);
+ assert.equal(app.chapterSavedPage({id:'one',source:'mangadex'}),0);
+ assert.equal(app.chapterSavedPage({id:'two',source:'mangadex'}),3);
+});
+
+test('locating the saved chapter clears search before expanding a long list',async()=>{
+ const app=setup();app.chapterSource='library';app.chapterSearch='other';app.currentWorkProgress={chapterId:'180'};
+ app.chapters=Array.from({length:220},(_,number)=>({id:String(number),number}));let ticks=0;
+ app.$nextTick=async()=>{if(++ticks===1)app.workChapterLimit=100;};
+ await app.locateSavedChapter();assert.equal(app.chapterSearch,'');assert.equal(app.workChapterLimit,181);
+});
 test('visitors are asked to sign in without attempting a library write',async()=>{
  const app=setup({from(){throw Error('must not write');}});app.userSession=null;
  await app.updatePersonalWork({id:'w'},{favorite:true});assert.equal(app.opened,'login');
@@ -31,8 +45,23 @@ test('failed personal write keeps previously saved favorite and status',async()=
 test('chapter history is written once at the last page and stays separate per work',async()=>{
  let writes=0;const app=setup({from:()=>({upsert:p=>({select:async()=>{writes++;return{data:[{...p,read_at:new Date().toISOString()}]};}})})});
  app.pageURLs=['a','b'];app.activeChapter={id:'chapter',source:'mangadex',number:3};app.readerPage=0;
- await app.markChapterRead();assert.equal(writes,0);app.readerPage=1;await app.markChapterRead();await app.markChapterRead();
+ await app.markChapterRead();assert.equal(writes,0);app.readerPage=1;await app.markChapterRead();assert.equal(writes,0);app.readerCompletionConfirmed=true;app.readerLoadedPages={1:true};await app.markChapterRead();await app.markChapterRead();
  assert.equal(writes,1);assert.equal(app.chapterWasRead(app.activeChapter),true);app.readingWork={id:'other'};assert.equal(app.chapterWasRead(app.activeChapter),false);
+});
+
+test('a failed final image cannot mark a chapter as completed',async()=>{
+ const app=setup({from(){assert.fail('must not write history');}});app.pageURLs=['a'];app.activeChapter={id:'chapter',source:'remote'};
+ app.readerPage=0;app.readerCompletionConfirmed=true;app.readerLoadedPages={0:true};app.readerFailedPages={0:true};
+ await app.markChapterRead();assert.equal(Object.keys(app.chapterHistory).length,0);
+});
+
+test('chapter corrections compare the actual read revision and clear after completing the new version',async()=>{
+ let writes=0;const app=setup({from:()=>({upsert:p=>({select:async()=>{writes++;return{data:[{...p,read_at:new Date().toISOString()}]};}})})});
+ const chapter={id:'chapter',source:'remote',number:3,contentRevision:2};app.activeChapter=chapter;app.pageURLs=['a'];app.readerPage=0;app.readerCompletionConfirmed=true;app.readerLoadedPages={0:true};
+ app.chapterHistory[app.historyKey('remote','chapter')]={chapter_revision:1};assert.equal(app.chapterHasCorrection(chapter),true);
+ await app.markChapterRead();assert.equal(writes,1);assert.equal(app.chapterHasCorrection(chapter),false);
+ await app.markChapterRead();assert.equal(writes,1);assert.equal(app.chapterHasCorrection({...chapter,contentRevision:3}),true);
+ assert.equal(app.chapterHasCorrection({...chapter,source:'mangadex'}),false);
 });
 test('chapter search supports decimal numbers, groups and reverse order without mutating source',()=>{
  const app=setup();const chapters=[{number:1,title:'Inicio'},{number:2.5,group:'Equipe Azul'},{number:3,group:'Equipe Azul'}];

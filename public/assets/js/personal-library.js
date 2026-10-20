@@ -1,6 +1,6 @@
 // Account-owned shelves and completed chapters; catalog data remains shared.
 window.personalLibraryMixin = {
-    data() { return { personalLibrary: {}, chapterHistory: {}, personalBusy: false, personalLoading: false,
+    data() { let revisions={};try{revisions=JSON.parse(localStorage.getItem('ark-read-versions:guest') || '{}');}catch(_){}return { chapterReadVersions:revisions && typeof revisions==='object' && !Array.isArray(revisions)?revisions:{},personalLibrary: {}, chapterHistory: {}, personalBusy: false, personalLoading: false,
         personalError: '', showProfile: false, profileName: '', profileMessage: '', chapterSearch: '', chapterOrder: 'asc', catalogLimit: 24, workChapterLimit:100,
         languageOptions: [{code:'pt-br',label:'Português (Brasil)'},{code:'pt',label:'Português (Portugal)'},{code:'en',label:'Inglês'},
             {code:'es',label:'Espanhol'},{code:'es-la',label:'Espanhol (América Latina)'},{code:'fr',label:'Francês'},
@@ -21,12 +21,33 @@ window.personalLibraryMixin = {
         chapterSearch() { this.dexVisibleLimit=100; this.workChapterLimit=100; }, chapterOrder() { this.dexVisibleLimit=100; this.workChapterLimit=100; }
     },
     methods: {
+        chapterSavedPage(chapter) {
+            const key=(chapter.source==='mangadex'?'mangadex:':'')+this.readingWork?.id,saved=this.readingProgress[key];
+            return saved?.chapterId===chapter.id?Math.max(0,Number(saved.page)||0)+1:0;
+        },
+        async locateSavedChapter() {
+            const saved=this.currentWorkProgress;if(!saved)return;
+            const work=this.readingWork,uid=this.userSession?.user?.id,source=this.chapterSource;
+            this.chapterSearch='';
+            await this.$nextTick();
+            if(this.readingWork!==work || this.userSession?.user?.id!==uid || this.chapterSource!==source)return;
+            const chapters=this.filterWorkChapters(this.chapterSource==='mangadex'?this.dexChapters:this.chapters);
+            const index=chapters.findIndex(chapter=>chapter.id===saved.chapterId);
+            if(index<0){this.readerError='O capítulo salvo não está nesta lista. Use Continuar lendo para retomá-lo.';return;}
+            this.workChapterLimit=Math.max(this.workChapterLimit,index+1);this.dexVisibleLimit=Math.max(this.dexVisibleLimit || 100,index+1);
+            await this.$nextTick();
+            if(this.readingWork!==work || this.userSession?.user?.id!==uid || this.chapterSource!==source)return;
+            const row=Array.from(document.querySelectorAll('.ark-work-chapter-grid [data-chapter-id]')).find(node=>node.dataset.chapterId===saved.chapterId);
+            row?.scrollIntoView({block:'center'});row?.querySelector('button')?.focus({preventScroll:true});
+        },
         languageLabel(code) { return this.languageOptions.find(row=>row.code===code)?.label || code || 'Não informado'; },
         historyKey(source, chapterId, workId=this.readingWork?.id) { return workId+':'+source+':'+chapterId; },
-        chapterWasRead(chapter) { return !!this.chapterHistory[this.historyKey(chapter.source || 'remote',chapter.id)]; },
+        chapterWasRead(chapter) { const key=this.historyKey(chapter.source || 'remote',chapter.id);return !!(this.chapterHistory[key] || this.chapterReadVersions[key]); },
+        chapterHasCorrection(chapter) {if(chapter.source!=='remote')return false;const key=this.historyKey('remote',chapter.id),read=this.chapterHistory[key]?.chapter_revision || this.chapterReadVersions[key];return !!read && Number(chapter.contentRevision || 1)>Number(read);},
         filterWorkChapters(chapters) { const q=this.chapterSearch.trim().toLocaleLowerCase('pt-BR'); return [...chapters].filter(row=>!q || [row.number,row.title,row.group].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q))).sort((a,b)=>(Number(a.number)-Number(b.number))*(this.chapterOrder==='desc'?-1:1)); },
         resetPersonalAccount() {
             this.resetDiscoveryAccount?.();
+            this.chapterReadVersions={};if(!this.userSession){try{const saved=JSON.parse(localStorage.getItem('ark-read-versions:guest') || '{}');if(saved && typeof saved==='object' && !Array.isArray(saved))this.chapterReadVersions=saved;}catch(_){}}
             this._personalEpoch=(this._personalEpoch||0)+1; this.personalLibrary={}; this.chapterHistory={}; this.personalError=''; this.personalBusy=false; this.personalLoading=false; this.showProfile=false;
             this._historyPending=new Set(); clearTimeout(this._personalTimer);
             if(this.userSession) this._personalTimer=setTimeout(()=>this.loadPersonalData(),0);
@@ -69,14 +90,15 @@ window.personalLibraryMixin = {
         },
         async markChapterRead() {
             const chapter=this.activeChapter, work=this.readingWork, userId=this.userSession?.user?.id, epoch=this._personalEpoch;
-            if(!userId || !work || !chapter || !['remote','mangadex'].includes(chapter.source) || !this.pageURLs.length || this.readerPage!==this.pageURLs.length-1 || this.readerLoading) return;
-            const key=this.historyKey(chapter.source,chapter.id);
-            this._historyPending ||= new Set(); if(this.chapterHistory[key] || this._historyPending.has(key)) return;
+            if(!work || !chapter || !['remote','mangadex'].includes(chapter.source) || !this.pageURLs.length || !this.readerCompletionConfirmed || !this.readerLoadedPages?.[this.pageURLs.length-1] || this.readerFailedPages?.[this.pageURLs.length-1] || this.readerLoading) return;
+            const key=this.historyKey(chapter.source,chapter.id),revision=Number(chapter.contentRevision || 1);
+            if(!userId){if(this.chapterReadVersions[key]===revision)return;this.chapterReadVersions[key]=revision;try{localStorage.setItem('ark-read-versions:guest',JSON.stringify(this.chapterReadVersions));}catch(_){this.personalError='O navegador não permitiu guardar os capítulos concluídos.';}return;}
+            this._historyPending ||= new Set(); if(Number(this.chapterHistory[key]?.chapter_revision || (this.chapterHistory[key]?1:0))>=revision || this._historyPending.has(key)) return;
             const pending=this._historyPending; pending.add(key);
             try {
-                const {data,error}=await _supabase.from('ark_read_history').upsert({user_id:userId,work_id:work.id,source:chapter.source,chapter_id:String(chapter.id),chapter_number:String(chapter.number??'')},{onConflict:'user_id,work_id,source,chapter_id',ignoreDuplicates:true}).select();
+                const {data,error}=await _supabase.from('ark_read_history').upsert({user_id:userId,work_id:work.id,source:chapter.source,chapter_id:String(chapter.id),chapter_number:String(chapter.number??''),chapter_revision:revision,read_at:new Date().toISOString()},{onConflict:'user_id,work_id,source,chapter_id'}).select();
                 if(error) throw error;
-                if(userId===this.userSession?.user?.id && epoch===this._personalEpoch) this.chapterHistory[key]=data?.[0] || {user_id:userId,work_id:work.id,source:chapter.source,chapter_id:String(chapter.id),chapter_number:String(chapter.number??''),read_at:new Date().toISOString()};
+                if(userId===this.userSession?.user?.id && epoch===this._personalEpoch) this.chapterHistory[key]=data?.[0] || {user_id:userId,work_id:work.id,source:chapter.source,chapter_id:String(chapter.id),chapter_number:String(chapter.number??''),chapter_revision:revision,read_at:new Date().toISOString()};
             } catch(_) { if(userId===this.userSession?.user?.id && epoch===this._personalEpoch) this.personalError='O histórico não sincronizou. Seu ponto de leitura continua salvo.'; }
             finally { pending.delete(key); }
         },

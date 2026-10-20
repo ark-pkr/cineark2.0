@@ -43,6 +43,41 @@ window.readerMixin = {
         chapterIndex() { return (this.readerChapterSequence || this.readingChapters).findIndex(c => c.id === this.activeChapter?.id); }
     },
     methods: {
+        readerLocationKey() {return 'ark-reader-location:'+(this.userSession?.user?.id || 'guest');},
+        currentReaderOffset() {const pending=this._readerRestore;return pending?.chapterId===this.activeChapter?.id && pending?.page===this.readerPage ? pending.offset : this._readerPageOffset || 0;},
+        rememberReaderLocation() {
+            const chapter=this.activeChapter,work=this.readingWork;
+            if(!chapter || !work)return;
+            try {sessionStorage.setItem(this.readerLocationKey(),JSON.stringify({workId:work.id,chapterId:chapter.id,source:chapter.source,number:chapter.number,mangaId:chapter.mangaId,language:chapter.language,page:this.readerPage,offset:this.currentReaderOffset()}));}catch(_){}
+        },
+        async restoreReaderLocation(work) {
+            if(this.activeChapter || this.readerBusy)return;
+            let saved;try {saved=JSON.parse(sessionStorage.getItem(this.readerLocationKey()) || 'null');}catch(_){return;}
+            if(!saved || String(saved.workId)!==String(work.id) || typeof saved.chapterId!=='string' || !['remote','mangadex','local'].includes(saved.source))return;
+            const uid=this.userSession?.user?.id,request=this._workRequest;
+            const current=()=>uid===this.userSession?.user?.id && request===this._workRequest && this.readingWork?.id===work.id;
+            try {
+                let chapter;
+                if(saved.source==='mangadex') {
+                    if(typeof saved.mangaId!=='string')return;
+                    this.chapterSource='mangadex';this.dexSelected={id:saved.mangaId,title:work.title};this.dexLanguage=saved.language || 'pt-br';
+                    await this.loadDexChapters();
+                    if(!current())return;
+                    chapter=this.dexChapters.find(c=>c.id===saved.chapterId) || {id:saved.chapterId,number:saved.number,mangaId:saved.mangaId,language:saved.language,source:'mangadex',published:true};
+                } else {
+                    this.chapterSource='library';
+                    chapter=(saved.source==='local'?this.localChapters:this.chapters).find(c=>c.id===saved.chapterId && (saved.source==='local' || c.published));
+                }
+                if(!current())return;
+                if(!chapter){this.readerError='O capítulo que estava aberto não está mais disponível. Escolha outro capítulo.';return;}
+                if(this._progressLoadingPromise)await this._progressLoadingPromise;
+                if(!current())return;
+                const page=Math.max(0,Math.floor(Number(saved.page)||0)),offset=Math.max(0,Math.min(1,Number(saved.offset)||0));
+                const key=(saved.source==='mangadex'?'mangadex:':'')+work.id;
+                this.readingProgress[key]={...this.readingProgress[key],chapterId:saved.chapterId,page,offset};
+                await this.openChapter(chapter,page);
+            }catch(_){if(current())this.readerError='Não foi possível reabrir o capítulo. Confira a conexão e recarregue para tentar novamente.';}
+        },
         startWorkReading() {
             if (this.readerBusy || !this.readingChapters.length) return;
             const first=[...this.readingChapters].sort((a,b)=>Number(a.number)-Number(b.number))[0];
@@ -66,6 +101,7 @@ window.readerMixin = {
         },
         async openWork(item) {
             if (this.readerBusy) return;
+            this.rememberCatalogView?.();
             const request = this._workRequest = (this._workRequest || 0) + 1;
             const userId = this.userSession?.user?.id;
             this.readingWork = item; this.readerError = ''; this.chapters = []; this.localChapters = []; this.readerBusy = true;
@@ -80,10 +116,6 @@ window.readerMixin = {
                 if (request === this._workRequest) this.readerError = 'Não foi possível carregar os capítulos online. Confira a conexão e tente novamente.';
             } finally {
                 if (request === this._workRequest) this.readerBusy = false;
-            }
-            if (request === this._workRequest && userId === this.userSession?.user?.id &&
-                this.readingWork?.id === item.id && !this.readerError && !this.chapters.some(chapter => chapter.published)) {
-                this.setChapterSource?.('mangadex');
             }
             if (this.isAdmin) {
                 try {
@@ -221,6 +253,7 @@ window.readerMixin = {
             const offset=!this._skipReaderRestore && saved?.chapterId===chapter.id && saved.page===page ? Math.max(0,Math.min(1,Number(saved.offset)||0)) : 0;
             this._skipReaderRestore=false;
             this.readerBusy = true; this.readerError = '';
+            const timing=window.ArkUX?.chapterStarted();
             try {
                 let urls, pages;
                 if (chapter.source === 'remote') {
@@ -239,6 +272,7 @@ window.readerMixin = {
                 this.activeChapter = { ...chapter, dimensions: pages ? pages.map(p => ({ width: p.width, height: p.height })) : chapter.source === 'mangadex' ? urls.map(() => ({ width: 2, height: 3 })) : chapter.dimensions,
                     storagePages: pages, externalQuality: chapter.source === 'mangadex' ? this.dexQuality : null };
                 this.pageURLs = urls;
+                window.ArkUX?.chapterOpened(timing);
                 this.readerPage = Math.max(0, Math.min(Number(page) || 0, urls.length - 1));
                 document.body.style.overflow = 'hidden'; this.saveReadingProgress();
                 await this.$nextTick();
@@ -281,10 +315,11 @@ window.readerMixin = {
         },
         saveReadingProgress() {
             if (!this.activeChapter || !this.readingWork) return;
+            this.rememberReaderLocation();
             const remote = this.activeChapter.source === 'remote';
             const external = this.activeChapter.source === 'mangadex';
             const key = external ? 'mangadex:' + this.readingWork.id : this.readingWork.id;
-            this.readingProgress[key] = { chapterId: this.activeChapter.id, page: this.readerPage, offset:this._readerPageOffset || 0,
+            this.readingProgress[key] = { chapterId: this.activeChapter.id, page: this.readerPage, number:this.activeChapter.number, offset:this.currentReaderOffset(),
                 remote, updatedAt: new Date().toISOString(), syncPending: remote || external,
                 ...(external ? { source: 'mangadex', mangaId: this.activeChapter.mangaId, number: this.activeChapter.number, language: this.activeChapter.language } : {}) };
             this.persistReadingProgress();
@@ -393,7 +428,8 @@ window.readerMixin = {
             this.resetReaderControls?.();
             this.cancelPageTranslation?.();
             this._chapterRequest = (this._chapterRequest || 0) + 1;
-            this.saveReadingProgress(); this.flushReadingProgress(); this.releasePages(); this.activeChapter = null;
+            this.saveReadingProgress(); this.flushReadingProgress(); this.releasePages(); this.activeChapter = null; this.chapterSource = 'library';
+            try {sessionStorage.removeItem(this.readerLocationKey());}catch(_){}
             this.readerBusy = false; document.body.style.overflow = '';
             if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         }
@@ -401,9 +437,11 @@ window.readerMixin = {
     mounted() {
         this._readerKeyHandler = e => this.readerKey(e);
         this._readerOnlineHandler = () => this.loadReadingProgress();
-        this._readerVisibilityHandler = () => { if (document.visibilityState === 'hidden') this.flushReadingProgress(); };
+        this._readerPageHideHandler = () => {this.saveReadingProgress();this.flushReadingProgress();};
+        this._readerVisibilityHandler = () => { if (document.visibilityState === 'hidden') this._readerPageHideHandler(); };
         window.addEventListener('keydown', this._readerKeyHandler);
         window.addEventListener('online', this._readerOnlineHandler);
+        window.addEventListener('pagehide', this._readerPageHideHandler);
         document.addEventListener('visibilitychange', this._readerVisibilityHandler);
     },
     beforeUnmount() {
@@ -412,6 +450,7 @@ window.readerMixin = {
         this._workRequest++; this._chapterRequest++; this._progressLoadRequest++;
         this.flushReadingProgress(); this.releasePages();
         window.removeEventListener('keydown', this._readerKeyHandler); window.removeEventListener('online', this._readerOnlineHandler);
+        window.removeEventListener('pagehide', this._readerPageHideHandler);
         document.removeEventListener('visibilitychange', this._readerVisibilityHandler); document.body.style.overflow = '';
     }
 };

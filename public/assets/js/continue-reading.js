@@ -18,6 +18,12 @@ window.continueReadingMixin = {
         }
     },
     methods: {
+        resumeChapterLabel(progress,chapters=[]) {
+            const chapter=chapters.find(row=>row.id===progress?.chapterId);
+            const history=Object.values(this.chapterHistory || {}).find(row=>row.chapter_id===progress?.chapterId);
+            const number=progress?.number ?? chapter?.number ?? history?.chapter_number;
+            return number!=null && String(number).trim()!==''?'Continuar capítulo '+number:'Continuar capítulo';
+        },
         async resumeReading(entry) {
             if (this.resumeBusy || this.readerBusy || !this.userSession) return;
             const userId = this.userSession.user.id, work = entry.work;

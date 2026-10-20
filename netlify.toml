@@ -1,5 +1,5 @@
 [build]
-  command = "node scripts/build-static.mjs"
+  command = "npm run verify"
   publish = "dist"
 [functions]
   directory = "netlify/functions"

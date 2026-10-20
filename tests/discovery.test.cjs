@@ -1,12 +1,21 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
+
+test('local title search tolerates one typo, transposition or missing letter but keeps filters exact',()=>{
+ const {app,helper}=setup();
+ const work={title:'Solo Leveling',genres:['Ação'],type:'Manhwa',reading_language:'pt-br'};
+ for(const query of ['solo levelign','solo levling','solo levelinh']){app.localSearch=query;assert.equal(app.matchesDiscovery(work),true,query);}
+ app.discoveryGenre='Romance';assert.equal(app.matchesDiscovery(work),false);
+ assert.equal(helper.matchesSearch('sola','solo leveling','Solo Leveling'),false);
+ assert.equal(helper.matchesSearch('lezzling','solo leveling','Solo Leveling'),false);
+});
 function setup() {
  const storage=new Map();const context={window:{location:{hostname:'cineark.com.br',origin:'https://cineark.com.br',pathname:'/',hash:''}},URL,AbortController,
-  localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},setTimeout,clearTimeout,document:{querySelector:()=>null},navigator:{}};
+  sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},setTimeout,clearTimeout,document:{querySelector:()=>null},navigator:{}};
  vm.createContext(context);vm.runInContext(fs.readFileSync('public/assets/js/discovery.js','utf8'),context);
  const mixin=context.window.discoveryMixin;
- const app={...mixin.data(),...mixin.methods,catalog:[],personalLibrary:{},readingProgress:{},userSession:{user:{id:'a'}},localSearch:'',
+ const app={...mixin.data(),...mixin.methods,catalog:[],$nextTick:async fn=>fn?.(),personalLibrary:{},readingProgress:{},userSession:{user:{id:'a'}},localSearch:'',
   languageLabel:code=>code==='pt-br'?'Português Brasil':code,activeChapter:null};
  for(const [name,fn] of Object.entries(mixin.computed))Object.defineProperty(app,name,{get:()=>fn.call(app)});
  return {app,context,storage,helper:context.window.ArkDiscovery};
@@ -58,6 +67,22 @@ test('local work links use a hash while public links use permanent routes',()=>{
  context.window.location.hash='#/obra/solo-leveling';assert.equal(app.currentWorkSlug(),'solo-leveling');
  context.window.location.pathname='/public/index.html';context.window.location.href='http://127.0.0.1:5500/public/index.html';
  assert.equal(app.workRoute({slug:'solo-leveling'}),'/public/#/obra/solo-leveling');assert.equal(app.homeRoute(),'/public/');
+});
+
+test('catalog navigation restores filters, expanded results and scroll per account',async()=>{
+ const {app,context,storage}=setup();let position;
+ context.window.scrollY=1340;context.window.scrollTo=(x,y)=>position=y;
+ Object.assign(app,{localSearch:'Solo',currentFilter:'favoritos',catalogSort:'title',catalogView:'list',discoveryType:'Manhwa',discoveryGenre:'Ação',discoveryLanguage:'pt-br',catalogLimit:96});
+ app.rememberCatalogView();assert.ok(storage.has('ark-catalog-view:a'));
+ Object.assign(app,{localSearch:'',catalogLimit:24,discoveryGenre:'',currentFilter:'Todos'});
+ await app.restoreCatalogView();assert.equal(app.localSearch,'Solo');assert.equal(app.catalogLimit,96);assert.equal(app.currentFilter,'favoritos');assert.equal(app.discoveryGenre,'Ação');assert.equal(position,1340);
+ app.userSession={user:{id:'b'}};app.localSearch='';await app.restoreCatalogView();assert.equal(app.localSearch,'');
+});
+
+test('view restoration never scrolls away from a direct work route',async()=>{
+ const {app,context,storage}=setup();storage.set('ark-catalog-view:a',JSON.stringify({query:'Old',scrollY:2000}));
+ context.window.location.pathname='/obra/test';context.window.scrollTo=()=>assert.fail('must not scroll a work route');
+ await app.restoreCatalogView();assert.equal(app.localSearch,'');
 });
 test('public work pages render share metadata and escape untrusted catalog fields',async()=>{
  const {renderWorkPage}=await import('../scripts/work-page.mjs');

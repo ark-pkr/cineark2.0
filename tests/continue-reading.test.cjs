@@ -16,6 +16,12 @@ function setup() {
 const uploaded = { chapterId: 'uploaded', remote: true, page: 7, updatedAt: '2026-10-18T10:00:00Z' };
 const external = { chapterId: 'dex', source: 'mangadex', mangaId: 'edition', number: '3', language: 'pt-br', page: 11, updatedAt: '2026-10-18T11:00:00Z' };
 
+test('resume labels show only chapter numbers, including chapter zero, never page numbers',()=>{
+ const app=setup();assert.equal(app.resumeChapterLabel({number:0,page:8}),'Continuar capítulo 0');
+ assert.equal(app.resumeChapterLabel({chapterId:'x',page:8},[{id:'x',number:12}]),'Continuar capítulo 12');
+ assert.equal(app.resumeChapterLabel({page:8}),'Continuar capítulo');
+});
+
 test('home shows latest source per work, orders recent reads and excludes deleted works and other account state', () => {
     const app = setup();
     app.readingProgress = { work: uploaded, 'mangadex:work': external, deleted: uploaded };

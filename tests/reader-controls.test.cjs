@@ -17,18 +17,59 @@ function setup(extraContext={}) {
 }
 const dex = (id, number, group = 'A') => ({ id, number, group, volume: '1', source: 'mangadex', published: true, mangaId: 'manga', language: 'pt-br' });
 
+test('reader overflow actions close the menu before opening a panel and keep focus recoverable',()=>{
+ const app=setup();let focused=false,opened=false;
+ app.$refs={readerActions:{open:true,querySelector:()=>({focus(){focused=true;}})}};
+ app.openReaderMoments=()=>{assert.equal(app.$refs.readerActions.open,false);opened=true;};
+ app.runReaderAction('moments');assert.equal(opened,true);assert.equal(focused,true);
+ app.readerDrawerOpen=true;app.runReaderAction('focus');assert.equal(app.readerFocus,true);assert.equal(app.readerDrawerOpen,false);
+});
+
+test('the open overflow menu prevents desktop idle from hiding its controls',()=>{
+ let idle;const app=setup({setTimeout:fn=>{idle=fn;return 1;}});app.activeChapter=dex('one','1');app.$refs={readerActions:{open:true}};
+ app.readerPointerMoved({pointerType:'mouse',clientY:400,currentTarget:{getBoundingClientRect:()=>({top:0,height:900})}});idle();assert.equal(app.readerControlsHidden,false);
+});
+
+test('opening the chapter directory expands to the active chapter beyond the first eighty',async()=>{
+ let focused=false;const app=setup({document:{querySelector:()=>({scrollIntoView(){},focus(){focused=true;}})}});
+ app.chapterSource='library';app.activeChapter={id:'150',source:'remote'};app.chapters=Array.from({length:180},(_,i)=>({id:String(i),published:true,source:'remote'}));
+ await app.toggleReaderDrawer();assert.equal(app.readerDrawerOpen,true);assert.equal(app.readerChapterLimit,151);assert.equal(focused,true);
+});
+
+test('batch recovery renews no more than two pages at a time',async()=>{
+    const app=setup();app.activeChapter={id:'chapter',source:'remote',storagePages:[0,1,2,3]};app.pageURLs=['a','b','c','d'];app.readerFailedPages={0:true,1:true,2:true,3:true};
+    let active=0,peak=0,calls=0;
+    app.cloudAPI=()=>({signedURLs:async pages=>{calls++;active++;peak=Math.max(peak,active);await new Promise(resolve=>setImmediate(resolve));active--;return ['new-'+pages[0]];}});
+    await app.retryFailedReaderPages();assert.equal(calls,4);assert.equal(peak,2);assert.equal(app.readerFailedCount,0);assert.equal(app.pageURLs[3],'new-3');assert.equal(app.readerRetryAllBusy,false);
+});
+
+test('batch recovery stops when the reader changes chapters and ignores late URLs',async()=>{
+    const app=setup();app.activeChapter={id:'chapter',source:'remote',storagePages:[0,1,2]};app.pageURLs=['a','b','c'];app.readerFailedPages={0:true,1:true,2:true};
+    const resolvers=[];app.cloudAPI=()=>({signedURLs:()=>new Promise(resolve=>resolvers.push(resolve))});
+    const pending=app.retryFailedReaderPages();assert.equal(resolvers.length,2);
+    app.activeChapter={id:'other',source:'remote'};app.pageURLs=['other'];app.readerFailedPages={};app.readerRetryAllBusy=false;
+    resolvers.forEach(resolve=>resolve(['stale']));await pending;
+    assert.equal(app.pageURLs[0],'other');assert.equal(resolvers.length,2);
+});
+
+test('economy mode avoids speculative image requests',()=>{
+    let requests=0;const app=setup({navigator:{connection:{saveData:true}},Image:class{constructor(){requests++;}}});
+    app.pageURLs=['a','b','c'];app.preloadReaderPages();assert.equal(requests,0);assert.equal(app.readerEagerPage(0),true);assert.equal(app.readerEagerPage(1),false);
+});
+
 test('a short chapter reveals reactions after its final image loads without any scroll event',async()=>{
     const app=setup();app.activeChapter={id:'short',source:'remote'};app.pageURLs=['page'];app.readerPage=0;
     const page={clientHeight:400,getBoundingClientRect:()=>({top:130,bottom:530})};
     app.$refs={readerScroll:{querySelector:()=>page,getBoundingClientRect:()=>({top:0,bottom:800})}};
     app.checkReaderCompletion();assert.equal(app.readerEndReached,false);
     await app.readerPageReady({target:{dataset:{chapter:'short'}}},0);
-    assert.equal(app.readerEndReached,true);assert.equal(app.readerControlsHidden,false);
+    assert.equal(app.readerEndReached,true);assert.equal(app.readerCompletionConfirmed,true);assert.equal(app.readerControlsHidden,false);
 });
 test('the reaction shortcut reveals the panel and cancels marathon countdown',async()=>{
     const app=setup();let scrolled=false;app.readerMarathonRemaining=6;
     app.$refs={readerScroll:{querySelector:()=>({scrollIntoView(){scrolled=true;}})}};
     await app.revealChapterReactions();assert.equal(app.readerEndReached,true);assert.equal(scrolled,true);assert.equal(app.readerMarathonRemaining,0);
+    assert.equal(app.readerCompletionConfirmed,false);
 });
 
 test('desktop idle collapses bars and moving to the top edge restores them',()=>{

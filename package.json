@@ -8,7 +8,8 @@
   "scripts": {
     "build": "node scripts/build-static.mjs",
     "start": "node scripts/mangadex-server.mjs",
-    "test": "node --test --test-isolation=none tests/*.test.cjs"
+    "test": "node --test --test-isolation=none tests/*.test.cjs",
+    "verify": "npm test && npm run build"
   },
   "devDependencies": {
     "@fontsource/bangers": "5.3.0",

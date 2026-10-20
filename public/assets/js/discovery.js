@@ -7,7 +7,18 @@ window.ArkDiscovery = (() => {
         return catalog.filter(item=>item.id!==work?.id && item.type!=='Anime').map(item=>({item,score:(item.genres||[]).filter(genre=>genres.has(normalize(genre))).length}))
             .filter(row=>row.score>0).sort((a,b)=>b.score-a.score || a.item.title.localeCompare(b.item.title,'pt-BR')).slice(0,8).map(row=>row.item);
     };
-    return {normalize,slug,read,related};
+    const nearWord=(a,b)=>{
+        if(a===b)return true;
+        if(a.length<5 || a.length>40 || b.length>40 || Math.abs(a.length-b.length)>1)return false;
+        if(a.length===b.length){const different=[];for(let i=0;i<a.length;i++)if(a[i]!==b[i])different.push(i);return different.length===1 || different.length===2 && different[1]===different[0]+1 && a[different[0]]===b[different[1]] && a[different[1]]===b[different[0]];}
+        const short=a.length<b.length?a:b,long=a.length<b.length?b:a;let i=0,j=0,skipped=false;
+        while(i<short.length && j<long.length){if(short[i]===long[j]){i++;j++;}else{if(skipped)return false;skipped=true;j++;}}return true;
+    };
+    const matchesSearch=(query,searchable,title)=>{
+        const words=normalize(title).split(/[^a-z0-9]+/).filter(Boolean);
+        return normalize(query).split(/\s+/).filter(Boolean).every(token=>normalize(searchable).includes(token) || words.some(word=>nearWord(token,word)));
+    };
+    return {normalize,slug,read,related,matchesSearch};
 })();
 window.discoveryMixin = {
     data() {
@@ -17,6 +28,7 @@ window.discoveryMixin = {
             healthFilter:'', healthResults:{}, healthBusy:false, healthMessage:'', failedCovers:{} };
     },
     computed: {
+        catalogNavigationSignature(){return JSON.stringify([this.localSearch,this.currentFilter,this.catalogSort,this.catalogView,this.discoveryType,this.discoveryGenre,this.discoveryLanguage,this.catalogLimit]);},
         availableGenres() { return [...new Set(this.catalog.flatMap(item=>item.genres||[]))].sort((a,b)=>a.localeCompare(b,'pt-BR')); },
         availableTypes() { return [...new Set(this.catalog.map(item=>item.type))].filter(Boolean).sort(); },
         ambientOpacity() { return ({off:0,subtle:.25,medium:.55,vivid:1}[this.ambientLevel] ?? 1)*(this.activeChapter?(this.readerFocus?0:.25):this.readingWork?.id ? .45:1); },
@@ -28,9 +40,12 @@ window.discoveryMixin = {
             noChapters:this.catalog.filter(item=>this.healthResults[item.id]?.count===0).length}; }
     },
     watch: {
+        catalogNavigationSignature(){if(!this.readingWork && !this._restoringCatalogView)this.rememberCatalogView();},
+        catalogLoading(value){if(!value && !this.currentWorkSlug())this.restoreCatalogView();},
         discoveryType() {this.catalogLimit=24;}, discoveryGenre() {this.catalogLimit=24;}, discoveryLanguage() {this.catalogLimit=24;},
-        readingWork(work) {
+        readingWork(work,previous) {
             this.shareMessage='';
+            if(!work && previous && !this._routing)this.$nextTick(()=>this.restoreCatalogView());
             if(this._routing) return;
             if(work?.slug) {
                 const path=this.workRoute(work);
@@ -42,10 +57,32 @@ window.discoveryMixin = {
         }
     },
     methods: {
+        catalogViewStorageKey(){return 'ark-catalog-view:'+(this.userSession?.user?.id || 'guest');},
+        rememberCatalogView(){
+            if(this.readingWork || this._restoringCatalogView || this.currentWorkSlug())return;
+            const snapshot={query:this.localSearch || '',filter:this.currentFilter || 'Todos',sort:this.catalogSort || 'recent',view:this.catalogView || 'grid',type:this.discoveryType,genre:this.discoveryGenre,language:this.discoveryLanguage,limit:this.catalogLimit,scrollY:Number(window.scrollY)||0};
+            try{sessionStorage.setItem(this.catalogViewStorageKey(),JSON.stringify(snapshot));}catch(_){}
+        },
+        async restoreCatalogView(){
+            const uid=this.userSession?.user?.id,key=this.catalogViewStorageKey();let saved;
+            try{saved=JSON.parse(sessionStorage.getItem(key) || 'null');}catch(_){return;}
+            if(!saved || typeof saved!=='object' || this.readingWork || this.currentWorkSlug())return;
+            const request=this._catalogViewRequest=(this._catalogViewRequest || 0)+1;this._restoringCatalogView=true;
+            const text=value=>typeof value==='string'?value.slice(0,200):'';
+            try{
+                this.localSearch=text(saved.query);this.currentFilter=uid && ['Todos','lendo','lido','pretendo','favoritos'].includes(saved.filter)?saved.filter:'Todos';
+                this.catalogSort=['recent','title'].includes(saved.sort)?saved.sort:'recent';this.catalogView=saved.view==='list'?'list':'grid';
+                this.discoveryType=text(saved.type);this.discoveryGenre=text(saved.genre);this.discoveryLanguage=text(saved.language);
+                await this.$nextTick();if(uid!==this.userSession?.user?.id || request!==this._catalogViewRequest)return;
+                this.catalogLimit=Math.max(24,Math.min(10000,Number(saved.limit)||24));await this.$nextTick();
+                if(uid!==this.userSession?.user?.id || this.readingWork || this.currentWorkSlug() || request!==this._catalogViewRequest)return;
+                window.scrollTo?.(0,Math.max(0,Number(saved.scrollY)||0));
+            }finally{if(request===this._catalogViewRequest)this._restoringCatalogView=false;}
+        },
         matchesDiscovery(item) {
             const norm=window.ArkDiscovery.normalize, query=norm(this.localSearch);
             const searchable=norm([item.title,item.author,item.type,this.languageLabel(item.reading_language),...(item.genres||[])].join(' '));
-            return (!query || query.split(/\s+/).every(token=>searchable.includes(token))) &&
+            return (!query || window.ArkDiscovery.matchesSearch(query,searchable,item.title)) &&
                 (!this.discoveryType || item.type===this.discoveryType) && (!this.discoveryGenre || item.genres?.includes(this.discoveryGenre)) &&
                 (!this.discoveryLanguage || item.reading_language===this.discoveryLanguage);
         },
@@ -74,6 +111,7 @@ window.discoveryMixin = {
                 this._routeAuthenticated=!!this.userSession;
                 window.history.replaceState({arkWork:slug},'',this.workRoute(work)); document.title=work.title+' | CINE ARK';
                 document.querySelector('#ark-route-preview')?.remove();
+                await this.restoreReaderLocation?.(work);
                 if(this.userSession) {try {sessionStorage.removeItem('ark-return-work');}catch(_){} }
             } finally {this._routing=false;}
         },
@@ -81,7 +119,7 @@ window.discoveryMixin = {
             if(this.currentWorkSlug()) return this.restoreWorkRoute();
             this._routing=true;
             try {if(this.activeChapter)this.closeReader();this._workRequest=(this._workRequest||0)+1;this._chapterRequest=(this._chapterRequest||0)+1;this.cancelMangaDex?.();this.readerBusy=false;this.readingWork=null;document.title='CINE ARK | Mangás e manhwas';}
-            finally {this._routing=false;}
+            finally {this._routing=false;await this.restoreCatalogView();}
         },
         async shareWork() {
             if(!this.readingWork?.slug)return;
@@ -91,6 +129,8 @@ window.discoveryMixin = {
         },
         async openRelatedWork(work) {await this.openWork(work);await this.$nextTick();document.querySelector('.ark-work-overlay')?.scrollTo({top:0});},
         resetDiscoveryAccount() {
+            this._catalogViewRequest=(this._catalogViewRequest || 0)+1;this._restoringCatalogView=false;
+            if(!this.currentWorkSlug()){const viewRequest=this._catalogViewRequest,uid=this.userSession?.user?.id;this._restoringCatalogView=true;setTimeout(async()=>{if(viewRequest!==this._catalogViewRequest || uid!==this.userSession?.user?.id)return;this.localSearch='';this.currentFilter='Todos';this.catalogSort='recent';this.catalogView='grid';this.discoveryType='';this.discoveryGenre='';this.discoveryLanguage='';this.catalogLimit=24;await this.$nextTick();this._restoringCatalogView=false;await this.restoreCatalogView();},0);}
             this._updatesEpoch=(this._updatesEpoch||0)+1;this._updatesController?.abort();this.updateBusy=false;this.updateMessage='';this.favoriteBatchOffset=0;this.updates={};
             this.healthResults={};this.healthBusy=false;this.healthMessage='';this._routeAuthenticated=false;
             if(this.userSession) {
@@ -163,6 +203,6 @@ window.discoveryMixin = {
             }finally{if(current())this.healthBusy=false;}
         }
     },
-    mounted() {this._routePop=()=>this.handleWorkPopstate();window.addEventListener('popstate',this._routePop);window.addEventListener('hashchange',this._routePop);},
-    beforeUnmount() {this._updatesController?.abort();window.removeEventListener('popstate',this._routePop);window.removeEventListener('hashchange',this._routePop);}
+    mounted() {this._catalogScroll=()=>{clearTimeout(this._catalogScrollTimer);this._catalogScrollTimer=setTimeout(()=>this.rememberCatalogView(),180);};this._catalogPageHide=()=>this.rememberCatalogView();window.addEventListener('scroll',this._catalogScroll,{passive:true});window.addEventListener('pagehide',this._catalogPageHide);this._routePop=()=>this.handleWorkPopstate();window.addEventListener('popstate',this._routePop);window.addEventListener('hashchange',this._routePop);},
+    beforeUnmount() {clearTimeout(this._catalogScrollTimer);window.removeEventListener('scroll',this._catalogScroll);window.removeEventListener('pagehide',this._catalogPageHide);this._updatesController?.abort();window.removeEventListener('popstate',this._routePop);window.removeEventListener('hashchange',this._routePop);}
 };

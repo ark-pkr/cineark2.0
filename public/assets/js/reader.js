@@ -168,6 +168,7 @@ window.readerMixin = {
         },
         async addChapter() {
             if (!this.isAdmin || this.readerBusy) return;
+            if(this.uploadReviewed===false){this.readerError='Confira a prévia antes de publicar.';return;}
             return this.publishChapterFiles(this.chapterFiles, Number(this.chapterNumber), this.chapterTitle.trim());
         },
         async publishLocalChapter(chapter) {
@@ -221,20 +222,20 @@ window.readerMixin = {
             if (chapter.source === 'mangadex') return;
             if (!this.isAdmin || this.readerBusy) return;
             const local = chapter.source === 'local';
-            if (!confirm(local ? `Excluir a cópia local do capítulo ${chapter.number}?` : `Excluir o capítulo ${chapter.number} e suas páginas online para todos os leitores?`)) return;
+            if (!confirm(local ? `Excluir a cópia local do capítulo ${chapter.number}?` : `Mover o capítulo ${chapter.number} para a lixeira? Suas ${chapter.pageCount || 0} páginas serão ocultadas dos leitores e poderão ser restauradas.`)) return;
             const workId = this.readingWork.id, userId = this.userSession.user.id;
             this.readerBusy = true;
             try {
                 if (local) await chapterStore('readwrite', store => store.delete(chapter.id));
-                else await this.cloudAPI().deleteChapter(chapter.id, () => userId === this.userSession?.user?.id && this.isAdmin);
+                else {const {error}=await _supabase.rpc('ark_archive_chapter',{p_chapter:chapter.id,p_restore:false});if(error)throw error;}
                 if (userId !== this.userSession?.user?.id || String(this.readingWork?.id) !== String(workId)) return;
                 this.chapters = this.chapters.filter(c => c.id !== chapter.id);
                 this.localChapters = this.localChapters.filter(c => c.id !== chapter.id);
-                if (this.readingProgress[workId]?.chapterId === chapter.id) {
+                if (local && this.readingProgress[workId]?.chapterId === chapter.id) {
                     delete this.readingProgress[workId]; this.persistReadingProgress();
                 }
             } catch (_) {
-                if (userId === this.userSession?.user?.id) this.readerError = 'A exclusão não terminou. O capítulo pode ter ficado como rascunho. Atualize a lista e tente novamente.';
+                if (userId === this.userSession?.user?.id) this.readerError = 'Não foi possível concluir a remoção. Atualize a lista e confira a lixeira.';
             } finally { if (userId === this.userSession?.user?.id) this.readerBusy = false; }
         },
         async continueReading() {
@@ -314,7 +315,7 @@ window.readerMixin = {
             root.querySelector(`[data-page="${this.readerPage}"]`)?.scrollIntoView({ block: 'start' });
         },
         saveReadingProgress() {
-            if (!this.activeChapter || !this.readingWork) return;
+            if (!this.activeChapter || !this.readingWork || this.readingWork.id===this._forgettingWorkId) return;
             this.rememberReaderLocation();
             const remote = this.activeChapter.source === 'remote';
             const external = this.activeChapter.source === 'mangadex';
@@ -348,7 +349,7 @@ window.readerMixin = {
                     const remote = await this.cloudAPI().progress(userId);
                     if (userId !== this.userSession?.user?.id || request !== this._progressLoadRequest) return;
                     for (const row of remote) {
-                        const local = this.readingProgress[row.work_id];
+                        if(row.work_id===this._forgettingWorkId)continue;const local = this.readingProgress[row.work_id];
                         if (local?.syncPending && Date.parse(local.updatedAt) >= Date.parse(row.updated_at)) continue;
                         this.readingProgress[row.work_id] = { chapterId: row.chapter_id, page: row.page_index,
                             remote: true, updatedAt: row.updated_at, syncPending: false };

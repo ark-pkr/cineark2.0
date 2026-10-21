@@ -37,6 +37,13 @@ function backend({ query = () => ({}), storage = {} } = {}) {
 const upload = () => ({ workId: 'work', number: 1, title: 'First',
     files: [{ type: 'image/png' }, { type: 'image/jpeg' }], dimensions: [{ width: 100, height: 200 }, { width: 150, height: 250 }] });
 
+test('lazy ZIP page decoding waits for the prior image upload and stores its dimensions',async()=>{
+ let decoded=0,uploaded=0;
+ const {api,calls}=backend({storage:{upload:async()=>{assert.equal(decoded,uploaded+1);uploaded++;return{};}}});
+ await api.upload({...upload(),files:[{},{}],dimensions:undefined,readPage:async()=>{assert.equal(decoded,uploaded);decoded++;return {file:{type:'image/webp'},dimensions:{width:77,height:88}};}});
+ assert.equal(uploaded,2);const pages=calls.find(call=>call.table==='ark_chapter_pages'&&call.operation==='insert');assert.equal(pages.value[0].width,77);assert.match(pages.value[0].storage_path,/\.webp$/);
+});
+
 test('chapter is published only after every file and page record is stored', async () => {
     const { api, calls } = backend();
     const chapter = await api.upload(upload());

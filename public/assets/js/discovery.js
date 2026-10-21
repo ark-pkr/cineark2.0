@@ -24,10 +24,11 @@ window.discoveryMixin = {
     data() {
         const settings=window.ArkDiscovery.read('ark-atmosphere',{});
         return { discoveryType:'', discoveryGenre:'', discoveryLanguage:'', ambientLevel:['off','subtle','medium','vivid'].includes(settings.level)?settings.level:'vivid',
-            ambientMotion:settings.motion!==false, showAtmosphere:false, shareMessage:'', routeMessage:'', updates:{}, updateBusy:false, updateMessage:'', favoriteBatchOffset:0,
+            ambientMotion:settings.motion!==false, showAtmosphere:false, shareMessage:'', routeMessage:'', updates:{}, updateBusy:false, updateMessage:'', favoriteBatchOffset:0,showNotifications:false,
             healthFilter:'', healthResults:{}, healthBusy:false, healthMessage:'', failedCovers:{} };
     },
     computed: {
+        notificationCount(){return this.updateEntries.reduce((sum,row)=>sum+(Number(row.newCount)||0)+(Number(row.correctionCount)||0),0);},
         catalogNavigationSignature(){return JSON.stringify([this.localSearch,this.currentFilter,this.catalogSort,this.catalogView,this.discoveryType,this.discoveryGenre,this.discoveryLanguage,this.catalogLimit]);},
         availableGenres() { return [...new Set(this.catalog.flatMap(item=>item.genres||[]))].sort((a,b)=>a.localeCompare(b,'pt-BR')); },
         availableTypes() { return [...new Set(this.catalog.map(item=>item.type))].filter(Boolean).sort(); },
@@ -131,14 +132,14 @@ window.discoveryMixin = {
         resetDiscoveryAccount() {
             this._catalogViewRequest=(this._catalogViewRequest || 0)+1;this._restoringCatalogView=false;
             if(!this.currentWorkSlug()){const viewRequest=this._catalogViewRequest,uid=this.userSession?.user?.id;this._restoringCatalogView=true;setTimeout(async()=>{if(viewRequest!==this._catalogViewRequest || uid!==this.userSession?.user?.id)return;this.localSearch='';this.currentFilter='Todos';this.catalogSort='recent';this.catalogView='grid';this.discoveryType='';this.discoveryGenre='';this.discoveryLanguage='';this.catalogLimit=24;await this.$nextTick();this._restoringCatalogView=false;await this.restoreCatalogView();},0);}
-            this._updatesEpoch=(this._updatesEpoch||0)+1;this._updatesController?.abort();this.updateBusy=false;this.updateMessage='';this.favoriteBatchOffset=0;this.updates={};
+            this._updatesEpoch=(this._updatesEpoch||0)+1;this._updatesController?.abort();this.updateBusy=false;this.updateMessage='';this.favoriteBatchOffset=0;this.showNotifications=false;this.updates={};
             this.healthResults={};this.healthBusy=false;this.healthMessage='';this._routeAuthenticated=false;
             if(this.userSession) {
                 const saved=window.ArkDiscovery.read('ark-updates:'+this.userSession.user.id,{});
                 if(saved && typeof saved==='object' && !Array.isArray(saved))this.updates=saved;
             }
         },
-        acknowledgeUpdates(workId) {if(this.updates[workId]){this.updates[workId]={...this.updates[workId],newCount:0};this.persistUpdates();}},
+        acknowledgeUpdates(workId) {if(this.updates[workId]){this.updates[workId]={...this.updates[workId],newCount:0,correctionCount:0,acknowledgedCorrections:{...(this.updates[workId].acknowledgedCorrections || {}),...(this.updates[workId].correctionRevisions || {})}};this.persistUpdates();}},
         persistUpdates() {if(this.userSession){try{localStorage.setItem('ark-updates:'+this.userSession.user.id,JSON.stringify(this.updates));}catch(_){this.updateMessage='O navegador não permitiu guardar a comparação desta consulta.';}}},
         async checkFavoriteUpdates() {
             if(this.updateBusy || !this.userSession)return;
@@ -150,9 +151,9 @@ window.discoveryMixin = {
             try {
                 for(const work of works) {
                     if(!current())return;
-                    const previous=this.updates[work.id]||{}, snapshots={...(previous.snapshots||{})};let added=0,error='',sourceNote='Biblioteca';
+                    const previous=this.updates[work.id]||{}, snapshots={...(previous.snapshots||{})};let added=0,error='',sourceNote='Catálogo',correctionCount=0,correctionRevisions={};
                     const compare=(key,rows)=>{const ids=[...new Set(rows.map(row=>String(row.id)))];const old=snapshots[key];if(Array.isArray(old))added+=ids.filter(id=>!old.includes(id)).length;snapshots[key]=ids;};
-                    try {const rows=await this.cloudAPI().chapters(work.id);if(!current())return;compare('library',rows.filter(row=>row.published));}
+                    try {const rows=await this.cloudAPI().chapters(work.id);if(!current())return;compare('library',rows.filter(row=>row.published));for(const chapter of rows){const read=this.chapterHistory?.[this.historyKey('remote',chapter.id,work.id)]?.chapter_revision;const revision=Number(chapter.contentRevision || 1);if(read && revision>Number(read) && revision>Number(previous.acknowledgedCorrections?.[chapter.id] || 0)){correctionCount++;correctionRevisions[chapter.id]=revision;}}}
                     catch(_){error='Não foi possível consultar a biblioteca.';}
                     const saved=this.readingProgress['mangadex:'+work.id],link=links[work.id] || (saved?.mangaId?{id:saved.mangaId,language:saved.language}:null);
                     if(link?.id) {
@@ -161,7 +162,7 @@ window.discoveryMixin = {
                         catch(_){if(!current())return;error+=(error?' ':'')+'MangaDex indisponível nesta consulta.';}
                     } else sourceNote+=' · Escolha uma edição do MangaDex na obra para acompanhá-la.';
                     if(!current())return;
-                    this.updates[work.id]={snapshots,newCount:Math.max(0,Number(previous.newCount)||0)+added,checkedAt:new Date().toISOString(),error,sourceNote};checked++;this.persistUpdates();
+                    this.updates[work.id]={snapshots,correctionCount,correctionRevisions,acknowledgedCorrections:previous.acknowledgedCorrections || {},newCount:Math.max(0,Number(previous.newCount)||0)+added,checkedAt:new Date().toISOString(),error,sourceNote};checked++;this.persistUpdates();
                 }
                 this.favoriteBatchOffset+=checked;
                 const more=this.favoriteBatchOffset<this.favoriteWorks.length;

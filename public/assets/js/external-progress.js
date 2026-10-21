@@ -28,7 +28,7 @@ window.externalProgressMixin = {
                     const rows = await this.cloudAPI().dexProgress(userId);
                     if (userId !== this.userSession?.user?.id || this._dexProgressLoad !== request) return;
                     for (const row of rows) {
-                        const key = 'mangadex:' + row.work_id, local = this.readingProgress[key];
+                        if(row.work_id===this._forgettingWorkId)continue;const key = 'mangadex:' + row.work_id, local = this.readingProgress[key];
                         if (local && Date.parse(local.updatedAt) >= Date.parse(row.updated_at)) continue;
                         this.readingProgress[key] = this.dexProgressValue(row);
                     }

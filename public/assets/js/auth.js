@@ -37,7 +37,8 @@ window.authMixin = {
             const isCurrent = () => userId === this.userSession?.user?.id && this.isAdmin;
             this.readerBusy = true;
             try {
-                const chapters = await this.cloudAPI().chapters(item.id);
+                const chapters = [...await this.cloudAPI().chapters(item.id),...await this.cloudAPI().chapters(item.id,true)];
+                if(!isCurrent() || window.prompt('Esta exclusão é permanente e inclui '+chapters.length+' capítulos, inclusive a lixeira. Digite o título para confirmar: '+item.title)!==item.title)return;
                 for (const chapter of chapters) await this.cloudAPI().deleteChapter(chapter.id, isCurrent);
                 if (!isCurrent()) return;
                 const { error } = await _supabase.from('itens_catalogo').delete().eq('id', item.id).select('id').single();

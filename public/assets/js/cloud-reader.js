@@ -10,10 +10,10 @@ window.ArkCloudReader = class {
             if (data.length < 500) return rows;
         }
     }
-    async chapters(workId) {
-        const rows = await this.rows('ark_chapters', 'id,work_id,number,title,published,content_revision,content_updated_at,ark_chapter_pages(count)', ['work_id', workId], 'number');
-        return rows.map(row => ({ id: row.id, workId: String(row.work_id), number: Number(row.number),
-            title: row.title, contentRevision:Number(row.content_revision || 1),contentUpdatedAt:row.content_updated_at, published: row.published, source: 'remote', pageCount: row.ark_chapter_pages?.[0]?.count || 0 }));
+    async chapters(workId, archived = false) {
+        const rows = await this.rows('ark_chapters', 'id,work_id,number,title,published,archived_at,archive_published,content_revision,content_updated_at,ark_chapter_pages(count)', ['work_id', workId], 'number');
+        return rows.filter(row=>archived?!!row.archived_at:!row.archived_at).map(row => ({ id: row.id, workId: String(row.work_id), number: Number(row.number),
+            title: row.title, archivedAt:row.archived_at,archivePublished:row.archive_published, contentRevision:Number(row.content_revision || 1),contentUpdatedAt:row.content_updated_at, published: row.published, source: 'remote', pageCount: row.ark_chapter_pages?.[0]?.count || 0 }));
     }
     async pages(chapterId) {
         return this.rows('ark_chapter_pages', 'page_index,storage_path,width,height', ['chapter_id', chapterId], 'page_index');
@@ -33,7 +33,7 @@ window.ArkCloudReader = class {
         }
         return urls;
     }
-    async upload({ workId, number, title, files, dimensions, onProgress = () => {}, isCurrent = () => true }) {
+    async upload({ workId, number, title, files, dimensions, readPage, onProgress = () => {}, isCurrent = () => true }) {
         const id = crypto.randomUUID();
         const paths = [];
         const guard = () => { if (!isCurrent()) throw new Error('A conta mudou durante o envio. Entre novamente para continuar.'); };
@@ -45,12 +45,14 @@ window.ArkCloudReader = class {
             const records = [];
             for (let i = 0; i < files.length; i++) {
                 guard();
-                const path = `${id}/${String(i + 1).padStart(6, '0')}.${extensions[files[i].type]}`;
+                const page = readPage ? await readPage(files[i], i) : {file:files[i],dimensions:dimensions[i]};
+                guard();
+                const path = `${id}/${String(i + 1).padStart(6, '0')}.${extensions[page.file.type]}`;
                 // Include attempted paths too: a response can fail after the server has saved a file.
                 paths.push(path);
-                const uploaded = await this.bucket.upload(path, files[i], { contentType: files[i].type, upsert: false });
+                const uploaded = await this.bucket.upload(path, page.file, { contentType: page.file.type, upsert: false });
                 if (uploaded.error) throw uploaded.error;
-                records.push({ chapter_id: id, page_index: i, storage_path: path, ...dimensions[i] });
+                records.push({ chapter_id: id, page_index: i, storage_path: path, ...page.dimensions });
                 onProgress(i + 1, files.length);
             }
             for (let offset = 0; offset < records.length; offset += 100) {

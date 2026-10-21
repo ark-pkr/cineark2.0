@@ -131,6 +131,15 @@ test('work preferences stay independent and ending a chapter never navigates aut
     app.readerScrolled({target:{scrollTop:600,clientHeight:400,scrollHeight:1000,querySelector:()=>null}});
     assert.equal(app.readerEndReached,true);assert.equal(navigation,0);
 });
+
+test('work comfort settings restore width theme and brightness per work and account',()=>{
+ const app=setup();app.changeReadingMode=()=>{};
+ Object.assign(app,{readerWidth:'680',readerTheme:'sepia',readerBrightness:75});app.saveReaderPreferences();
+ app.readingWork={id:'other'};Object.assign(app,{readerWidth:'1100',readerTheme:'gray',readerBrightness:90});app.saveReaderPreferences();
+ app.readingWork={id:'work'};app.prepareImmersiveReader();assert.equal(app.readerWidth,'680');assert.equal(app.readerTheme,'sepia');assert.equal(app.readerBrightness,75);
+ app.userSession={user:{id:'b'}};app.prepareImmersiveReader();assert.equal(app.readerWidth,'1100');assert.equal(app.readerTheme,'gray');
+ app.userSession={user:{id:'a'}};app.prepareImmersiveReader();assert.equal(app.readerWidth,'680');
+});
 test('retry renews only the failed page and stale load events cannot mark the next chapter ready',async()=>{
     const app=setup();const page={storage_path:'two.jpg'};app.activeChapter={id:'a',source:'remote',storagePages:[{},page]};app.pageURLs=['one','two'];app.readerFailedPages={1:true};
     app.cloudAPI=()=>({signedURLs:async pages=>{assert.equal(pages.length,1);assert.equal(pages[0],page);return ['renewed'];}});

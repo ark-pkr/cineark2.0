@@ -60,3 +60,15 @@ Validação funcional após aplicar:
 O frontend agora envia capítulos para essas tabelas e o bucket privado, abre páginas por URLs assinadas e sincroniza o progresso por conta. A instalação SQL existente já contém os recursos necessários; não é preciso reaplicá-la após atualizar o frontend.
 
 Capítulos antigos do navegador continuam no IndexedDB e podem ser publicados explicitamente pelo administrador, na obra com o mesmo ID. Não são enviados nem apagados automaticamente. Valide o envio e a leitura com uma sessão autenticada antes de divulgar a biblioteca.
+
+## Revisão de capítulos e recuperação
+
+As migrações `supabase/sql/chapter-editor-recovery.sql` e, em seguida, `supabase/sql/editor-noop-and-forget-reading.sql` foram aplicadas ao projeto existente em 20/10/2026. Em outro projeto, aplique-as nessa ordem após as migrações de capítulos e revisão de conteúdo. Não reinstale o banco existente.
+
+O menu de cada capítulo oferece marcar como lido/não lido. Administradores também podem corrigir número, título, imagens e ordem, mantendo o identificador do capítulo. O servidor verifica a versão antes de salvar para impedir que uma revisão antiga substitua uma mais recente. Salvar sem alterações não gera uma correção artificial. A prévia é privada e não publica dados.
+
+Remover um capítulo online agora o move para a lixeira da obra. A restauração preserva imagens e histórico, e o número permanece reservado. A exclusão da obra inteira continua permanente, inclui capítulos arquivados e exige digitar o título; cópias locais excluídas não possuem recuperação. Imagens substituídas são mantidas no armazenamento para evitar remoção de arquivos ainda em uso; isso não é um sistema de versões restauráveis nem faz limpeza automática desses arquivos.
+
+O botão para remover uma obra de “Continuar lendo” apaga apenas o ponto de leitura do próprio usuário, em uma transação; preserva capítulos lidos e momentos. Preferências por obra e avisos de favoritos ficam neste navegador, separados por conta. Avisos de conexão não representam download offline de capítulos inteiros. Relatos são agrupados por capítulo e a contagem representa os registros carregados, não leitores distintos.
+
+Validação: `npm run verify`; testes de permissão, edição sem alterações, conflito de revisão, arquivamento/restauração e remoção do próprio progresso também foram executados no banco dentro de transações com `ROLLBACK`, sem alterar o conteúdo publicado.

@@ -104,10 +104,10 @@ window.readerControlsMixin = {
             this.readerControlsHidden=false;this.readerEndReached=false;this.readerCompletionConfirmed=false;this.readerFailedPages={};this.readerLoadedPages={};this.readerRetries={};this.readerRetryingPages={};this.readerRetryAllBusy=false;this._readerLastScroll=0;
             this._readerPreloads=new Map();
             let preferences={};
-            try { preferences=JSON.parse(localStorage.getItem('ark-reader-work:'+this.readingWork.id)||'{}') || {};this.readerHint=!localStorage.getItem('ark-reader-hint-seen'); }catch(_){}
+            try { const global=JSON.parse(localStorage.getItem('ark-reader-preferences') || '{}') || {};const scoped=localStorage.getItem('ark-reader-work:'+(this.userSession?.user?.id || 'guest')+':'+this.readingWork.id);preferences={width:global.width,theme:global.theme,brightness:global.brightness,...JSON.parse(scoped || localStorage.getItem('ark-reader-work:'+this.readingWork.id) || '{}')};this.readerHint=!localStorage.getItem('ark-reader-hint-seen'); }catch(_){}
             this.readingMode=['vertical','paged'].includes(preferences.mode)?preferences.mode:'vertical';
             this.readingDirection=preferences.direction==='rtl'?'rtl':'ltr';
-            this.readerSpacing=[0,8,16,24].includes(preferences.spacing)?preferences.spacing:0;
+            this.readerSpacing=[0,8,16,24].includes(preferences.spacing)?preferences.spacing:0;this.readerWidth=['680','900','1100','full'].includes(preferences.width)?preferences.width:'900';this.readerTheme=['black','gray','sepia'].includes(preferences.theme)?preferences.theme:'black';this.readerBrightness=Math.max(50,Math.min(100,Number(preferences.brightness)||100));
             this.$nextTick(()=>this.preloadReaderPages());
         },
         dismissReaderHint() { this.readerHint=false;try{localStorage.setItem('ark-reader-hint-seen','1');}catch(_){} },
@@ -214,7 +214,7 @@ window.readerControlsMixin = {
         saveReaderPreferences(reobserve=true) {
             try { localStorage.setItem('ark-reader-preferences', JSON.stringify({ width: this.readerWidth, brightness:this.readerBrightness,
                 spacing:this.readerSpacing, mode:this.readingMode, direction:this.readingDirection,theme:this.readerTheme,autoHide:this.readerAutoHide,marathon:this.readerMarathon }));
-                if(this.readingWork) localStorage.setItem('ark-reader-work:'+this.readingWork.id,JSON.stringify({mode:this.readingMode,direction:this.readingDirection,spacing:this.readerSpacing}));
+                if(this.readingWork) localStorage.setItem('ark-reader-work:'+(this.userSession?.user?.id || 'guest')+':'+this.readingWork.id,JSON.stringify({mode:this.readingMode,direction:this.readingDirection,spacing:this.readerSpacing,width:this.readerWidth,theme:this.readerTheme,brightness:this.readerBrightness}));
             } catch (_) {}
             if(!this.readerAutoHide) this.readerControlsHidden=false;
             if(reobserve!==false)this.changeReadingMode();

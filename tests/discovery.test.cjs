@@ -61,6 +61,13 @@ test('unverified chapter counts are not treated as missing chapters',()=>{
  assert.equal(app.qualityCounts.noChapters,0);app.healthResults.w={count:0,cover:'ok'};assert.equal(app.qualityCounts.noChapters,1);
  app.healthFilter='chapters';assert.equal(app.matchesHealthFilter(app.catalog[0]),true);
 });
+
+test('favorite notices use actual newer content revisions and acknowledgement prevents repeat notices',async()=>{
+ const {app}=setup();app.catalog=[{id:'w',title:'Work'}];app.personalLibrary={w:{favorite:true}};app.historyKey=(source,id,work)=>work+':'+source+':'+id;app.chapterHistory={'w:remote:c':{chapter_revision:1}};
+ app.cloudAPI=()=>({chapters:async()=>[{id:'c',published:true,contentRevision:2}]});
+ await app.checkFavoriteUpdates();assert.equal(app.updates.w.correctionCount,1);assert.equal(app.notificationCount,1);
+ app.acknowledgeUpdates('w');assert.equal(app.notificationCount,0);await app.checkFavoriteUpdates();assert.equal(app.updates.w.correctionCount,0);
+});
 test('local work links use a hash while public links use permanent routes',()=>{
  const {app,context}=setup();assert.equal(app.workRoute({slug:'solo-leveling'}),'/obra/solo-leveling');
  context.window.location.hostname='127.0.0.1';assert.equal(app.workRoute({slug:'solo-leveling'}),'/#/obra/solo-leveling');

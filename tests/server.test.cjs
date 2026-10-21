@@ -15,6 +15,8 @@ test('production server binds PORT, serves readiness and does not expose private
         const {PUBLIC_FILES}=await import('../scripts/public-assets.mjs');
         for(const file of PUBLIC_FILES) assert.equal((await fetch(base+'/'+file)).status,200,'Public asset: '+file);
         assert.equal((await fetch(base+'/assets/vendor/fonts/poppins-latin-400-normal.woff2')).headers.get('content-type'),'font/woff2');
+        assert.equal((await fetch(base+'/api/discover',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"query":"curto"}'})).status,400);
+        assert.equal((await fetch(base+'/api/discover',{method:'POST',headers:{'Content-Type':'application/json'},body:'x'.repeat(3000)})).status,413);
         assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
         assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'x'.repeat(3000) })).status, 413);
         for (const path of ['/.env', '/.env.local', '/.git/config', '/supabase/config.toml', '/package.json','/public/index.html','/scripts/public-assets.mjs','/supabase/sql/personal-library.sql']) {

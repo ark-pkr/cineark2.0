@@ -1,6 +1,8 @@
 window.readerMomentsMixin={
-    data(){return {showMoments:false,removedMoment:null,moments:[],momentLabel:'',momentContext:null,momentBusy:false,momentLoading:false,momentMessage:'',showProblemReport:false,problemContext:null,problemCategory:'missing',problemDetails:'',problemBusy:false,problemMessage:'',problemSent:false,adminReports:[],reportsLoading:false,reportsBusy:false,reportsMessage:'',reportFilter:'open',reportsLimit:50,reportWorkFilter:'',reportCategoryFilter:'',reportChapterSearch:''};},
+    data(){return {showMoments:false,removedMoment:null,momentSearch:'',moments:[],momentLabel:'',momentContext:null,momentBusy:false,momentLoading:false,momentMessage:'',showProblemReport:false,problemContext:null,problemCategory:'missing',problemDetails:'',problemBusy:false,problemMessage:'',problemSent:false,adminReports:[],reportsLoading:false,reportsBusy:false,reportsMessage:'',reportFilter:'open',reportsLimit:50,reportWorkFilter:'',reportCategoryFilter:'',reportChapterSearch:''};},
     computed:{
+        filteredMoments(){const q=window.ArkDiscovery.normalize(this.momentSearch);return this.moments.filter(row=>!q || window.ArkDiscovery.normalize(row.label+' '+(this.readerMomentWork(row)?.title || '')).includes(q));},
+        groupedProblemReports(){const groups=new Map();for(const report of this.adminReports){const key=[report.work_id,report.source,report.chapter_id].join(':');if(!groups.has(key))groups.set(key,{key,work_id:report.work_id,chapter_number:report.chapter_number,reports:[]});groups.get(key).reports.push(report);}return [...groups.values()];},
         currentMoment(){const c=this.momentContext;return c?this.moments.find(row=>row.work_id===c.work_id && row.source===c.source && row.chapter_id===c.chapter_id && row.page_index===c.page_index):null;}
     },
     watch:{
@@ -32,7 +34,7 @@ window.readerMomentsMixin={
         },
         persistReaderMoments(){try{localStorage.setItem(this.momentStorageKey(),JSON.stringify(this.moments));return true;}catch(_){return false;}},
         resetReaderMoments(){
-            this._momentEpoch=(this._momentEpoch || 0)+1;this.moments=[];this.removedMoment=null;this.reportWorkFilter='';this.reportCategoryFilter='';this.reportChapterSearch='';this.showMoments=false;this.showProblemReport=false;this.momentContext=null;this.problemContext=null;this.momentMessage='';this.problemMessage='';this.momentBusy=false;this.momentLoading=false;this.problemBusy=false;this.problemSent=false;this.adminReports=[];this.reportsLoading=false;this.reportsBusy=false;this.reportsMessage='';this._reportsRequest=(this._reportsRequest || 0)+1;
+            this._momentEpoch=(this._momentEpoch || 0)+1;this.moments=[];this.momentSearch='';this.removedMoment=null;this.reportWorkFilter='';this.reportCategoryFilter='';this.reportChapterSearch='';this.showMoments=false;this.showProblemReport=false;this.momentContext=null;this.problemContext=null;this.momentMessage='';this.problemMessage='';this.momentBusy=false;this.momentLoading=false;this.problemBusy=false;this.problemSent=false;this.adminReports=[];this.reportsLoading=false;this.reportsBusy=false;this.reportsMessage='';this._reportsRequest=(this._reportsRequest || 0)+1;
             try{const rows=JSON.parse(localStorage.getItem(this.momentStorageKey()) || '[]');if(Array.isArray(rows))this.moments=rows.filter(row=>row && typeof row.id==='string' && typeof row.work_id==='string' && typeof row.chapter_id==='string' && typeof row.label==='string' && ['remote','mangadex'].includes(row.source) && Number.isInteger(row.page_index) && row.page_index>=0).slice(0,200);}catch(_){}
             clearTimeout(this._momentsTimer);if(this.userSession)this._momentsTimer=setTimeout(()=>this.loadReaderMoments(),0);
         },

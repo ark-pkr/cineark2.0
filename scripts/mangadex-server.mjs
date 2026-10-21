@@ -7,12 +7,15 @@ import { PUBLIC_FILES } from './public-assets.mjs';
 import { createMangaDexProxy } from '../supabase/functions/_shared/mangadex-proxy.mjs';
 import { createPageTranslator } from './page-translator.mjs';
 import { createWorkPageHandler } from './work-page.mjs';
+import { createGeminiDiscovery } from './gemini-discovery.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const publicRoot = resolve(root,'public');
 try { process.loadEnvFile(resolve(root, '.env.local')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const publicConfig = { window: {} };
 vm.runInNewContext(await readFile(resolve(publicRoot,'assets/js/config.js'), 'utf8'), publicConfig);
 const settings = publicConfig.window.CINE_ARK_CONFIG;
+const discover = createGeminiDiscovery({supabaseUrl:settings.supabaseUrl,anonKey:settings.supabaseAnonKey,
+    apiKey:process.env.GEMINI_API_KEY,model:process.env.GEMINI_DISCOVERY_MODEL || 'gemini-3.5-flash-lite'});
 const translatePage = createPageTranslator({ supabaseUrl: settings.supabaseUrl, anonKey: settings.supabaseAnonKey,
     bucket: settings.pagesBucket, apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' });
 const handler = createMangaDexProxy();
@@ -26,6 +29,16 @@ const publicFiles = new Set(PUBLIC_FILES);
 export const server = http.createServer(async (incoming, outgoing) => {
     try {
         const url = new URL(incoming.url, publicOrigin || `http://127.0.0.1:${port}`);
+        if (url.pathname === '/api/discover') {
+            const parts=[];let size=0;
+            if(Number(incoming.headers['content-length'])>2048){outgoing.writeHead(413).end();incoming.resume();return;}
+            for await(const chunk of incoming.iterator({destroyOnReturn:false})){
+                size+=chunk.length;if(size>2048){outgoing.writeHead(413).end();incoming.resume();return;}parts.push(chunk);
+            }
+            const response=await discover(new Request(url,{method:incoming.method,headers:incoming.headers,
+                ...(!['GET','HEAD'].includes(incoming.method)?{body:Buffer.concat(parts)}:{})}),{clientId:incoming.socket.remoteAddress || 'shared'});
+            outgoing.writeHead(response.status,Object.fromEntries(response.headers));outgoing.end(await response.text());return;
+        }
         if (url.pathname.startsWith('/obra/') || url.pathname==='/sitemap.xml') {
             const response=await workPage(new Request(url,{method:incoming.method}));
             outgoing.writeHead(response.status,Object.fromEntries(response.headers));outgoing.end(await response.text());return;

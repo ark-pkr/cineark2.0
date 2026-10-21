@@ -4,6 +4,18 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 const clean=(value,max)=>String(value || '').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
 const normalize=value=>String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 class SearchError extends Error{constructor(message,status=502){super(message);this.status=status;}}
+export function geminiFailure(status,value){
+ const error=value?.error || {},message=String(error.message || '').toLowerCase();
+ const reasons=(Array.isArray(error.details)?error.details:[]).map(detail=>detail?.reason).filter(reason=>typeof reason==='string');
+ if(status===429)return {code:'GEMINI_QUOTA',message:'A cota do Gemini foi atingida. Tente mais tarde.',status:429};
+ if(reasons.includes('API_KEY_INVALID') || status===401 || /api key not valid|invalid api key|api key expired/.test(message))return {code:'GEMINI_KEY_INVALID',message:'A chave Gemini configurada no servidor foi recusada. O administrador precisa atualizar GEMINI_API_KEY no Netlify e gerar um novo deploy.',status:503};
+ if(reasons.some(reason=>['API_KEY_SERVICE_BLOCKED','SERVICE_DISABLED','API_KEY_HTTP_REFERRER_BLOCKED','API_KEY_IP_ADDRESS_BLOCKED'].includes(reason)))return {code:'GEMINI_KEY_RESTRICTED',message:'As permissões da chave estão bloqueando o servidor. O administrador precisa revisar o acesso à API Gemini e as restrições da chave no Google Cloud.',status:503};
+ if(/location is not supported|country is not supported|unsupported location|region is not supported/.test(message))return {code:'GEMINI_REGION',message:'O Gemini não está disponível na região deste servidor. O administrador precisa revisar a região da função de busca.',status:503};
+ if(status===404)return {code:'GEMINI_MODEL',message:'O modelo Gemini configurado não está disponível para esta chave. O administrador precisa revisar GEMINI_DISCOVERY_MODEL no servidor.',status:503};
+ if(status===403)return {code:'GEMINI_ACCESS',message:'O Google negou acesso ao Gemini neste servidor. O administrador precisa revisar a chave, as permissões e o projeto Google utilizado.',status:503};
+ if(status===400)return {code:'GEMINI_REQUEST',message:'O Gemini recusou a configuração da busca. O administrador precisa conferir a chave e o modelo utilizados no servidor.',status:503};
+ return {code:'GEMINI_UNAVAILABLE',message:'O Gemini está temporariamente indisponível. Tente mais tarde.',status:502};
+}
 async function readJSON(source,max){
  if(Number(source.headers.get('content-length'))>max)throw new SearchError('Solicitação ou resposta grande demais.',413);
  let size=0;const chunks=[];
@@ -27,6 +39,8 @@ export function validateDiscovery(value,catalog){
  return matches;
 }
 export function createGeminiDiscovery({supabaseUrl,anonKey,apiKey='',model='gemini-3.5-flash-lite',fetcher=fetch,now=Date.now,dailyLimit=100,hourlyLimit=10}={}){
+ // Hosting panels expect the value only; tolerate an accidentally pasted env assignment or quotes.
+ apiKey=String(apiKey || '').trim().replace(/^(?:GEMINI_API_KEY|GOOGLE_API_KEY)\s*=\s*/,'').trim().replace(/^(['"])([\s\S]*)\1$/,'$2').trim();
  const base=new URL(supabaseUrl);if(base.protocol!=='https:' || !/^[a-z0-9-]+\.supabase\.co$/.test(base.hostname))throw Error('Supabase inválido.');
  if(!/^gemini-[a-z0-9.-]+$/.test(model))throw Error('Modelo Gemini inválido.');
  const cache=new Map(),usage=new Map();let catalogCache=null,catalogPending=null,active=0,day='',daily=0;
@@ -79,12 +93,15 @@ export function createGeminiDiscovery({supabaseUrl,anonKey,apiKey='',model='gemi
       generationConfig:{temperature:0.2,maxOutputTokens:4096,responseMimeType:'application/json',responseJsonSchema:{type:'object',properties:{matches:{type:'array',maxItems:6,items:{type:'object',properties:{id:{type:'string'},fit:{type:'string',enum:['supported','partial']},reason:{type:'string'},uncertainty:{type:'string'},evidence:{type:'array',minItems:1,maxItems:3,items:{type:'object',properties:{field:{type:'string',enum:['title','type','genres','synopsis']},quote:{type:'string'}},required:['field','quote']}}},required:['id','fit','reason','uncertainty','evidence']}}},required:['matches']}}
      })
     });
-    if(!response.ok)throw new SearchError(response.status===429?'A cota do Gemini foi atingida. Tente mais tarde.':'O Gemini está indisponível. Tente mais tarde.',response.status===429?429:502);
+    if(!response.ok){
+     let detail;try{detail=await readJSON(response,64*1024);}catch(_){}
+     const failure=geminiFailure(response.status,detail),error=new SearchError(failure.message,failure.status);error.code=failure.code;throw error;
+    }
     const result=await readJSON(response,64*1024),candidate=result.candidates?.[0];if(candidate?.finishReason!=='STOP')throw new SearchError('A IA não concluiu a busca. Tente reformular.');
     let value;try{value=JSON.parse(candidate.content.parts.filter(part=>!part.thought&&typeof part.text==='string').map(part=>part.text).join(''));}catch(_){throw new SearchError('A IA retornou uma busca incompleta. Tente novamente.');}
     const output={matches:validateDiscovery(value,rows),searched:rows.length,catalogCount:all.length};
     if(cache.size>=100)cache.delete(cache.keys().next().value);cache.set(key,{value:output,until:now()+600000});return send(output);
    }finally{active--;limit.busy=false;}
-  }catch(error){return send({error:error instanceof SearchError?error.message:'Não foi possível concluir a busca. Tente novamente.'},error.status || 502);}
+  }catch(error){return send({error:error instanceof SearchError?error.message:'Não foi possível concluir a busca. Tente novamente.',...(error instanceof SearchError && error.code?{code:error.code}:{})},error.status || 502);}
  };
 }

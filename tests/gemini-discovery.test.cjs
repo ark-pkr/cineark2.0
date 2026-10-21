@@ -32,6 +32,18 @@ test('identical successful searches reuse cached results while new requests obey
 test('quota failure has a useful message and never automatically retries Gemini',async()=>{
  const {handler,calls}=await setup({fetcher:async url=>String(url).includes('googleapis.com')?Response.json({error:{message:'internal private detail'}},{status:429}):null});const response=await handler(request());assert.equal(response.status,429);const text=await response.text();assert.match(text,/cota do Gemini/);assert.ok(!text.includes('private detail'));assert.equal(calls.filter(call=>call.url.includes('googleapis.com')).length,1);
 });
+
+test('provider diagnostics identify configuration failures without echoing provider details or keys',async()=>{
+ const {geminiFailure}=await modulePromise;
+ for(const [status,error,code] of [[400,{details:[{reason:'API_KEY_INVALID'}],message:'private-key-detail'},'GEMINI_KEY_INVALID'],[403,{details:[{reason:'API_KEY_SERVICE_BLOCKED'}]},'GEMINI_KEY_RESTRICTED'],[400,{message:'User location is not supported for the API use.'},'GEMINI_REGION'],[404,{message:'models/unavailable not found'},'GEMINI_MODEL'],[403,{},'GEMINI_ACCESS']]){
+  const result=geminiFailure(status,{error});assert.equal(result.code,code);assert.ok(!result.message.includes('private-key-detail'));
+ }
+ const {handler}=await setup({fetcher:async url=>String(url).includes('googleapis.com')?Response.json({error:{details:[{reason:'API_KEY_INVALID'}],message:'secret-provider-detail'}},{status:400}):null});const response=await handler(request());assert.equal(response.status,503);const value=await response.json();assert.equal(value.code,'GEMINI_KEY_INVALID');assert.ok(!JSON.stringify(value).includes('secret-provider-detail'));
+});
+
+test('hosting keys tolerate surrounding quotes and an accidentally pasted environment assignment',async()=>{
+ const {handler,calls}=await setup({config:{apiKey:' GEMINI_API_KEY="private-test-key"\n'}});assert.equal((await handler(request())).status,200);assert.equal(calls.at(-1).init.headers['x-goog-api-key'],'private-test-key');
+});
 test('empty supported results are valid and incomplete model output is rejected',async()=>{
  const empty=await setup({answer:{matches:[]}});assert.deepEqual((await (await empty.handler(request())).json()).matches,[]);
  const incomplete=await setup({fetcher:async url=>String(url).includes('googleapis.com')?Response.json({candidates:[{finishReason:'MAX_TOKENS'}]}):null});assert.equal((await incomplete.handler(request())).status,502);

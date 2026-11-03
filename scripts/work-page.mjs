@@ -8,13 +8,13 @@ export function renderWorkPage(template,work,origin) {
         '<meta name="description" content="'+escapeHTML(description)+'">\n<meta property="og:type" content="book">\n'+
         '<meta property="og:site_name" content="CINE ARK">\n<meta property="og:title" content="'+escapeHTML(title)+'">\n'+
         '<meta property="og:description" content="'+escapeHTML(description)+'">\n<meta property="og:url" content="'+escapeHTML(canonical)+'">\n'+
-        (poster?'<meta property="og:image" content="'+escapeHTML(poster)+'">\n':'')+'<meta name="twitter:card" content="summary_large_image">\n';
+        '<meta property="og:image" content="'+escapeHTML(poster || new URL('/assets/images/icone.png',origin).href)+'">\n<meta property="og:image:alt" content="'+escapeHTML('Capa de '+work.title)+'">\n'+'<meta name="twitter:card" content="summary_large_image">\n';
     const json=JSON.stringify(work).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
     const preview='<article id="ark-route-preview" class="ark-route-preview"><a href="/">← CINE ARK</a><h1>'+escapeHTML(work.title)+'</h1>'+
         (poster?'<img src="'+escapeHTML(poster)+'" alt="Capa de '+escapeHTML(work.title)+'" width="180" height="270">':'')+
         '<p>'+escapeHTML(work.type)+'</p><p>'+escapeHTML(clean(work.synopsis))+'</p>'+(work.author?'<p>Autor / arte: '+escapeHTML(work.author)+'</p>':'')+
         '<p>'+escapeHTML((work.genres||[]).join(' · '))+'</p></article>';
-    return template.replace(/<head>/i,'<head>\n<base href="/">').replace(/<title>[\s\S]*?<\/title>/i,'<title>'+escapeHTML(title)+'</title>').replace('</head>',tags+'<script>window.CINE_ARK_INITIAL_WORK='+json+';</script>\n</head>').replace('<div id="app"',preview+'\n<div id="app"');
+    return template.replace(/<!-- ark-home-metadata:start -->[\s\S]*?<!-- ark-home-metadata:end -->/i,'').replace(/<head>/i,'<head>\n<base href="/">').replace(/<title>[\s\S]*?<\/title>/i,'<title>'+escapeHTML(title)+'</title>').replace('</head>',tags+'<script>window.CINE_ARK_INITIAL_WORK='+json+';</script>\n</head>').replace('<div id="app"',preview+'\n<div id="app"');
 }
 export function createWorkPageHandler({settings,loadTemplate,fetcher=fetch}) {
     return async request=>{

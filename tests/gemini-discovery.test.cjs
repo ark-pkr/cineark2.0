@@ -7,13 +7,13 @@ async function setup(options={}){
  const {createGeminiDiscovery}=await modulePromise,calls=[];
  const handler=createGeminiDiscovery({supabaseUrl:'https://project.supabase.co',anonKey:'public-key',apiKey:'private-test-key',fetcher:async(url,init)=>{
   calls.push({url:String(url),init});if(options.fetcher){const r=await options.fetcher(url,init);if(r)return r;}
-  if(String(url).includes('/rest/v1/itens_catalogo'))return Response.json(options.catalog || [work]);
+  if(String(url).includes('/rest/v1/itens_catalogo'))return Response.json((options.catalog || [work]).map(row=>({...row,ark_chapters:row.ark_chapters ?? [{count:2}]})));
   return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(options.answer || answer)}]}}]});
  },...(options.config||{})});return {handler,calls};
 }
 test('intent search accepts guests and sends only the prompt and public catalog to Gemini',async()=>{
  const {handler,calls}=await setup();const response=await handler(request()),result=await response.json();assert.equal(response.status,200);assert.equal(result.matches[0].id,work.id);assert.equal(result.matches[0].evidence[0].quote,'aprende necromancia');
- const provider=calls.find(call=>call.url.includes('googleapis.com'));assert.equal(provider.init.headers['x-goog-api-key'],'private-test-key');assert.ok(!provider.url.includes('private-test-key'));const sent=JSON.parse(provider.init.body);assert.equal(sent.generationConfig.responseMimeType,'application/json');const input=JSON.parse(sent.contents[0].parts[0].text);assert.equal(input.catalog[0].id,work.id);assert.deepEqual(Object.keys(input).sort(),['catalog','request']);assert.ok(!JSON.stringify(result).includes('private-test-key'));
+ const provider=calls.find(call=>call.url.includes('googleapis.com'));assert.equal(provider.init.headers['x-goog-api-key'],'private-test-key');assert.ok(!provider.url.includes('private-test-key'));const sent=JSON.parse(provider.init.body);assert.equal(sent.generationConfig.responseMimeType,'application/json');const input=JSON.parse(sent.contents[0].parts[0].text);assert.equal(input.catalog[0].id,work.id);assert.deepEqual(Object.keys(input).sort(),['catalog','prioritizeAvailable','request']);assert.ok(!JSON.stringify(result).includes('private-test-key'));
 });
 test('invalid and cross-origin queries never reach either external service',async()=>{
  const {handler,calls}=await setup();assert.equal((await handler(request('curto'))).status,400);assert.equal((await handler(request('x'.repeat(501)))).status,400);assert.equal((await handler(request(undefined,{body:{catalog:[work]}}))).status,400);assert.equal((await handler(request(undefined,{headers:{Origin:'https://other.example'}}))).status,403);assert.equal(calls.length,0);
@@ -44,6 +44,26 @@ test('provider diagnostics identify configuration failures without echoing provi
 test('hosting keys tolerate surrounding quotes and an accidentally pasted environment assignment',async()=>{
  const {handler,calls}=await setup({config:{apiKey:' GEMINI_API_KEY="private-test-key"\n'}});assert.equal((await handler(request())).status,200);assert.equal(calls.at(-1).init.headers['x-goog-api-key'],'private-test-key');
 });
+
+test('reviewed themes support exact evidence and chapter availability is supplied by the database',async()=>{
+ const catalog=[{...work,editorial_themes:['Necromancia','Protagonista estrategista'],ark_chapters:[{count:3}]}];
+ const value={matches:[{...answer.matches[0],fit:'supported',uncertainty:'',evidence:[{field:'themes',quote:'Protagonista estrategista'}],publishedChapters:999}]};
+ const {handler,calls}=await setup({catalog,answer:value});const response=await handler(request()),result=await response.json();assert.equal(response.status,200);assert.equal(result.matches[0].publishedChapters,3);
+ const metadata=JSON.parse(JSON.parse(calls.at(-1).init.body).contents[0].parts[0].text).catalog[0];assert.deepEqual(metadata.themes,['Necromancia','Protagonista estrategista']);assert.equal(metadata.publishedChapters,3);
+ const url=new URL(calls[0].url);assert.equal(url.searchParams.get('ark_chapters.published'),'eq.true');assert.equal(url.searchParams.get('ark_chapters.archived_at'),'is.null');
+});
+
+test('prioritizing available chapters is optional and cache respects the option',async()=>{
+ const other={...work,id:'other',ark_chapters:[{count:2}]};const value={matches:[answer.matches[0],{...answer.matches[0],id:'other'}]};
+ const {handler,calls}=await setup({catalog:[{...work,ark_chapters:[{count:0}]},other],answer:value});
+ const prioritized=await (await handler(request())).json();assert.equal(prioritized.matches[0].id,'other');assert.equal(prioritized.matches[1].publishedChapters,0);
+ const normal=await (await handler(request(undefined,{body:{prioritizeAvailable:false}}))).json();assert.equal(normal.matches[0].id,work.id);assert.equal(normal.prioritizeAvailable,false);assert.equal(calls.filter(call=>call.url.includes('googleapis.com')).length,2);
+});
+
+test('unconfirmed chapter counts and invented editorial quotes cannot produce availability claims',async()=>{
+ const absent=await setup({catalog:[{...work,ark_chapters:[]}]});assert.equal((await absent.handler(request())).status,503);assert.equal(absent.calls.filter(call=>call.url.includes('googleapis.com')).length,0);
+ const unsupported=await setup({catalog:[{...work,editorial_themes:[]}],answer:{matches:[{...answer.matches[0],evidence:[{field:'themes',quote:'Protagonista estrategista'}]}]}});assert.equal((await unsupported.handler(request())).status,502);
+});
 test('empty supported results are valid and incomplete model output is rejected',async()=>{
  const empty=await setup({answer:{matches:[]}});assert.deepEqual((await (await empty.handler(request())).json()).matches,[]);
  const incomplete=await setup({fetcher:async url=>String(url).includes('googleapis.com')?Response.json({candidates:[{finishReason:'MAX_TOKENS'}]}):null});assert.equal((await incomplete.handler(request())).status,502);
@@ -53,7 +73,7 @@ test('large catalogs are preselected and expose the number actually analyzed',as
 });
 function uiSetup(fetcher){const c={window:{location:{hostname:'cineark.com.br'}},AbortController,setTimeout:()=>0,clearTimeout(){},fetch:fetcher};vm.createContext(c);vm.runInContext(fs.readFileSync('public/assets/js/ai-discovery.js','utf8'),c);const mixin=c.window.aiDiscoveryMixin,app={...mixin.data(),...mixin.methods,catalog:[work]};for(const [name,get]of Object.entries(mixin.computed))Object.defineProperty(app,name,{get:()=>get.call(app)});app.intentQuery='Quero fantasia com necromancia';return {app,c,mixin};}
 test('UI sends no reader data and maps suggestions only to works currently in the catalog',async()=>{
- let sent;const {app}=uiSetup(async(url,init)=>{sent={url,init};return Response.json({...answer,searched:1,catalogCount:1});});await app.searchReadingIntent();assert.equal(sent.url,'/api/discover');assert.equal(sent.init.credentials,'omit');assert.deepEqual(Object.keys(JSON.parse(sent.init.body)),['query']);assert.equal(app.intentMatches[0].work.title,'Necromante');app.catalog=[];assert.equal(app.intentMatches.length,0);
+ let sent;const {app}=uiSetup(async(url,init)=>{sent={url,init};return Response.json({...answer,searched:1,catalogCount:1});});await app.searchReadingIntent();assert.equal(sent.url,'/api/discover');assert.equal(sent.init.credentials,'omit');assert.deepEqual(Object.keys(JSON.parse(sent.init.body)).sort(),['prioritizeAvailable','query']);assert.equal(app.intentMatches[0].work.title,'Necromante');app.catalog=[];assert.equal(app.intentMatches.length,0);
 });
 test('late response cannot restore cleared or previous-account search results',async()=>{
  let finish;const {app,mixin}=uiSetup(()=>new Promise(resolve=>finish=resolve));const pending=app.searchReadingIntent();mixin.watch.userSession.call(app,{user:{id:'b'}},{user:{id:'a'}});finish(Response.json(answer));await pending;assert.equal(app.intentResult,null);assert.equal(app.intentBusy,false);assert.equal(app.intentQuery,'');
@@ -69,4 +89,11 @@ test('network failure displays a Portuguese message and keeps the prompt for ret
 test('local setup errors distinguish missing backend from a server without its Gemini key',async()=>{
  const missing=uiSetup(async()=>{throw new TypeError('Failed to fetch');});missing.c.window.location.hostname='127.0.0.1';await missing.app.searchReadingIntent();assert.match(missing.app.intentError,/Execute npm start/);
  const unconfigured=uiSetup(async()=>Response.json({code:'AI_NOT_CONFIGURED',error:'unavailable'},{status:503}));unconfigured.c.window.location.hostname='127.0.0.1';await unconfigured.app.searchReadingIntent();assert.match(unconfigured.app.intentError,/GEMINI_API_KEY/);assert.match(unconfigured.app.intentError,/hospedagem/);
+});
+
+test('editorial theme changes require admin access and normalize duplicates without modifying genres',()=>{
+ const {app}=uiSetup(async()=>{});app.newItem={editorial_themes:[],genres:['Fantasia']};app.toggleEditorialTheme('Necromancia');assert.equal(app.newItem.editorial_themes.length,0);
+ app.isAdmin=true;app.toggleEditorialTheme('Necromancia');assert.deepEqual([...app.newItem.editorial_themes],['Necromancia']);app.toggleEditorialTheme('necromancia');assert.equal(app.newItem.editorial_themes.length,0);
+ app.setEditorialThemes({target:{value:'  Regressão, regressao, Necromancia, , Protagonista estrategista'}});assert.deepEqual([...app.newItem.editorial_themes],['Regressão','Necromancia','Protagonista estrategista']);assert.deepEqual(app.newItem.genres,['Fantasia']);
+ assert.equal(app.normalizeEditorialThemes(Array.from({length:30},(_,i)=>'tema '+i)).length,24);assert.equal(app.normalizeEditorialThemes(['x'.repeat(100)])[0].length,60);
 });

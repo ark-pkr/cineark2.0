@@ -18,6 +18,27 @@ window.continueReadingMixin = {
         }
     },
     methods: {
+        latestSavedProgress(work) {
+            return [this.readingProgress[work.id],this.readingProgress['mangadex:'+work.id]]
+                .filter(value=>value?.chapterId && (value.remote || value.source==='mangadex'))
+                .sort((a,b)=>(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0))[0];
+        },
+        async startReadingWork(work) {
+            if(this.readerBusy || this.resumeBusy)return;
+            const userId=this.userSession?.user?.id;
+            const saved=this.latestSavedProgress(work);
+            if(saved && userId)return this.resumeReading({work,progress:saved});
+            await this.openWork(work);
+            if(this.readingWork?.id!==work.id || this.readerBusy || this.readerError || userId!==this.userSession?.user?.id)return;
+            if(this._progressLoadingPromise)await this._progressLoadingPromise;
+            if(this.readingWork?.id!==work.id || userId!==this.userSession?.user?.id)return;
+            const current=this.latestSavedProgress(work);
+            if(current && userId)return this.resumeReading({work,progress:current});
+            const available=this.chapters.filter(chapter=>chapter.published).sort((a,b)=>a.number-b.number);
+            const first=available.find(chapter=>chapter.id===current?.chapterId) || available[0];
+            if(first)await this.openChapter(first,first.id===current?.chapterId?current.page:0);
+            else this.readerError='Esta obra ainda não tem capítulos na biblioteca. Confira as fontes disponíveis nos detalhes.';
+        },
         resumeChapterLabel(progress,chapters=[]) {
             const chapter=chapters.find(row=>row.id===progress?.chapterId);
             const history=Object.values(this.chapterHistory || {}).find(row=>row.chapter_id===progress?.chapterId);

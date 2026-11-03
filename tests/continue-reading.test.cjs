@@ -16,6 +16,23 @@ function setup() {
 const uploaded = { chapterId: 'uploaded', remote: true, page: 7, updatedAt: '2026-10-18T10:00:00Z' };
 const external = { chapterId: 'dex', source: 'mangadex', mangaId: 'edition', number: '3', language: 'pt-br', page: 11, updatedAt: '2026-10-18T11:00:00Z' };
 
+test('read now starts the earliest published chapter and preserves guest progress',async()=>{
+ const app=setup();app.userSession=null;
+ app.chapters=[{id:'draft',number:0,published:false},{id:'later',number:5,published:true},{id:'first',number:1,published:true}];
+ let opened;app.openChapter=async(chapter,page)=>opened={id:chapter.id,page};
+ await app.startReadingWork(app.catalog[0]);assert.deepEqual(opened,{id:'first',page:0});
+ app.readingProgress.work={chapterId:'later',remote:true,page:4};
+ await app.startReadingWork(app.catalog[0]);assert.deepEqual(opened,{id:'later',page:4});
+});
+
+test('read now does not open a chapter after navigating away during loading',async()=>{
+ const app=setup();let complete,opened=false;
+ app.openWork=work=>{app.readingWork=work;return new Promise(resolve=>complete=resolve);};
+ app.openChapter=async()=>opened=true;
+ const pending=app.startReadingWork(app.catalog[0]);app.readingWork={id:'other'};complete();await pending;
+ assert.equal(opened,false);
+});
+
 test('resume labels show only chapter numbers, including chapter zero, never page numbers',()=>{
  const app=setup();assert.equal(app.resumeChapterLabel({number:0,page:8}),'Continuar capítulo 0');
  assert.equal(app.resumeChapterLabel({chapterId:'x',page:8},[{id:'x',number:12}]),'Continuar capítulo 12');

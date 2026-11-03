@@ -8,9 +8,9 @@ window.ArkSplash = (() => {
     return {
         shouldShow() {
             if (returningFromAuth || directWorkLink) return false;
-            try { return sessionStorage.getItem('ark-splash-seen') !== '1'; } catch (_) { return true; }
+            try { return sessionStorage.getItem('ark-splash-seen') !== '1' && (typeof localStorage==='undefined' || localStorage.getItem('ark-intro-seen') !== '1') && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch (_) { return true; }
         },
-        dismiss() { try { sessionStorage.setItem('ark-splash-seen','1'); } catch (_) {} }
+        dismiss() { try { sessionStorage.setItem('ark-splash-seen','1');if(typeof localStorage!=='undefined')localStorage.setItem('ark-intro-seen','1'); } catch (_) {} }
     };
 })();
 window.authMixin = {

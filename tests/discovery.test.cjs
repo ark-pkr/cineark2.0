@@ -10,6 +10,50 @@ test('local title search tolerates one typo, transposition or missing letter but
  assert.equal(helper.matchesSearch('sola','solo leveling','Solo Leveling'),false);
  assert.equal(helper.matchesSearch('lezzling','solo leveling','Solo Leveling'),false);
 });
+
+test('available filter excludes unknown counts and empty works without trusting totalcount',()=>{
+ const {app}=setup();app.discoveryAvailable=true;
+ const work={id:'w',title:'Work',totalcount:100};
+ assert.equal(app.matchesDiscovery(work),false);
+ app.availability.w={count:0};assert.equal(app.matchesDiscovery(work),false);
+ app.availability.w={count:3};assert.equal(app.matchesDiscovery(work),true);
+ app.clearDiscoveryFilters();assert.equal(app.discoveryAvailable,false);
+});
+
+test('latest chapters omit works no longer in the catalog and open only published chapters',async()=>{
+ const {app}=setup();const work={id:'w',title:'Book',type:'Manhwa'};
+ app.catalog=[work];app.latestChapters=[{id:'c',work_id:'w'},{id:'gone',work_id:'missing'}];
+ assert.equal(app.latestChapterEntries.length,1);
+ let opened=null;app.openWork=async item=>{app.readingWork=item;app.chapters=[{id:'c',published:false}];};
+ app.openChapter=async row=>opened=row;app.chapterSavedPage=()=>0;
+ await app.openLatestChapter(app.latestChapterEntries[0]);assert.equal(opened,null);assert.ok(app.readerError);
+ app.openWork=async item=>{app.readingWork=item;app.readerError='';app.chapters=[{id:'c',published:true}];};
+ await app.openLatestChapter(app.latestChapterEntries[0]);assert.equal(opened.id,'c');
+});
+
+test('latest chapter opening stops when the account changes during loading',async()=>{
+ const {app}=setup();let opened=false;
+ app.openWork=async work=>{app.readingWork=work;app.userSession={user:{id:'other'}};};
+ app.openChapter=async()=>opened=true;
+ await app.openLatestChapter({work:{id:'w'},chapter:{id:'c'}});assert.equal(opened,false);
+});
+
+test('availability failures keep unknown works unconfirmed and allow a retry',async()=>{
+ const {app}=setup();
+ app.cloudAPI=()=>({client:{from(){throw Error('offline');}}});
+ await app.loadCatalogAvailability();
+ assert.ok(app.availabilityError);assert.equal(app.availabilityBusy,false);
+ assert.equal(Object.keys(app.availability).length,0);
+});
+
+test('work metadata replaces home metadata instead of duplicating canonical and description',async()=>{
+ const {renderWorkPage}=await import('../scripts/work-page.mjs');
+ const html=renderWorkPage(fs.readFileSync('public/index.html','utf8'),{title:'Example',slug:'example',synopsis:'A story'},'https://cineark.com.br');
+ assert.equal((html.match(/rel="canonical"/g)||[]).length,1);
+ assert.equal((html.match(/name="description"/g)||[]).length,1);
+ assert.match(html,/og:url" content="https:\/\/cineark.com.br\/obra\/example/);
+ assert.match(html,/og:image" content="https:\/\/cineark.com.br\/assets\/images\/icone.png/);
+});
 function setup() {
  const storage=new Map();const context={window:{location:{hostname:'cineark.com.br',origin:'https://cineark.com.br',pathname:'/',hash:''}},URL,AbortController,
   sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},setTimeout,clearTimeout,document:{querySelector:()=>null},navigator:{}};

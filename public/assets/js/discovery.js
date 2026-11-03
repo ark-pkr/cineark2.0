@@ -23,13 +23,16 @@ window.ArkDiscovery = (() => {
 window.discoveryMixin = {
     data() {
         const settings=window.ArkDiscovery.read('ark-atmosphere',{});
-        return { discoveryType:'', discoveryGenre:'', discoveryLanguage:'', ambientLevel:['off','subtle','medium','vivid'].includes(settings.level)?settings.level:'vivid',
+        return { discoveryType:'', discoveryGenre:'', discoveryLanguage:'', discoveryAvailable:false, availability:{}, availabilityBusy:false, availabilityError:'', latestChapters:[], latestChaptersBusy:false, latestChaptersError:'', personalMenuOpen:false, ambientLevel:['off','subtle','medium','vivid'].includes(settings.level)?settings.level:'subtle',
             ambientMotion:settings.motion!==false, showAtmosphere:false, shareMessage:'', routeMessage:'', updates:{}, updateBusy:false, updateMessage:'', favoriteBatchOffset:0,showNotifications:false,
             healthFilter:'', healthResults:{}, healthBusy:false, healthMessage:'', failedCovers:{} };
     },
     computed: {
+        latestChapterEntries() {
+            return (this.latestChapters || []).map(chapter=>({chapter,work:this.catalog.find(work=>String(work.id)===String(chapter.work_id))})).filter(entry=>entry.work && entry.work.type!=='Anime');
+        },
         notificationCount(){return this.updateEntries.reduce((sum,row)=>sum+(Number(row.newCount)||0)+(Number(row.correctionCount)||0),0);},
-        catalogNavigationSignature(){return JSON.stringify([this.localSearch,this.currentFilter,this.catalogSort,this.catalogView,this.discoveryType,this.discoveryGenre,this.discoveryLanguage,this.catalogLimit]);},
+        catalogNavigationSignature(){return JSON.stringify([this.localSearch,this.currentFilter,this.catalogSort,this.catalogView,this.discoveryType,this.discoveryGenre,this.discoveryLanguage,this.discoveryAvailable,this.catalogLimit]);},
         availableGenres() { return [...new Set(this.catalog.flatMap(item=>item.genres||[]))].sort((a,b)=>a.localeCompare(b,'pt-BR')); },
         availableTypes() { return [...new Set(this.catalog.map(item=>item.type))].filter(Boolean).sort(); },
         ambientOpacity() { return ({off:0,subtle:.25,medium:.55,vivid:1}[this.ambientLevel] ?? 1)*(this.activeChapter?(this.readerFocus?0:.25):this.readingWork?.id ? .45:1); },
@@ -44,6 +47,7 @@ window.discoveryMixin = {
         catalogNavigationSignature(){if(!this.readingWork && !this._restoringCatalogView)this.rememberCatalogView();},
         catalogLoading(value){if(!value && !this.currentWorkSlug())this.restoreCatalogView();},
         discoveryType() {this.catalogLimit=24;}, discoveryGenre() {this.catalogLimit=24;}, discoveryLanguage() {this.catalogLimit=24;},
+        discoveryAvailable() {this.catalogLimit=24;this.rememberCatalogView();},
         readingWork(work,previous) {
             this.shareMessage='';
             if(!work && previous && !this._routing)this.$nextTick(()=>this.restoreCatalogView());
@@ -58,10 +62,69 @@ window.discoveryMixin = {
         }
     },
     methods: {
+        async loadLatestChapters() {
+            if(this.latestChaptersBusy)return;
+            this.latestChaptersBusy=true;this.latestChaptersError='';
+            try {
+                const {data,error}=await this.cloudAPI().client.from('ark_chapters')
+                    .select('id,work_id,number,title,created_at').eq('published',true).is('archived_at',null)
+                    .order('created_at',{ascending:false}).order('id').limit(12);
+                if(error)throw error;
+                this.latestChapters=data;
+            }catch(_){this.latestChaptersError='Não foi possível carregar os últimos capítulos.';}
+            finally{this.latestChaptersBusy=false;}
+        },
+        async openLatestChapter(entry) {
+            if(this.readerBusy)return;
+            const uid=this.userSession?.user?.id;
+            await this.openWork(entry.work);
+            if(this.readingWork?.id!==entry.work.id || uid!==this.userSession?.user?.id || this.readerBusy || this.readerError)return;
+            const chapter=this.chapters.find(row=>row.id===entry.chapter.id && row.published);
+            if(chapter)await this.openChapter(chapter,this.chapterSavedPage(chapter)||0);
+            else this.readerError='Este capítulo não está mais disponível. Escolha outro capítulo da obra.';
+        },
+        async discoverAfterChapter(work) {
+            if(this.readerBusy || this.readerNavigating)return;
+            this.closeReader();
+            await this.openRelatedWork(work);
+        },
+        async focusCatalogSearch() {
+            this.portalMenuOpen=false;
+            await this.$nextTick();
+            const input=document.querySelector('#catalog-search');
+            input?.scrollIntoView({block:'center',behavior:this.ambientMotion?'smooth':'auto'});
+            input?.focus({preventScroll:true});
+        },
+        async loadCatalogAvailability() {
+            if(this.availabilityBusy)return;
+            this.availabilityBusy=true;this.availabilityError='';
+            try {
+                const result={};
+                for(let offset=0;;offset+=500) {
+                    const {data,error}=await this.cloudAPI().client.from('itens_catalogo')
+                        .select('id,ark_chapters(count),latest:ark_chapters(content_updated_at)').eq('ark_chapters.published',true)
+                        .is('ark_chapters.archived_at',null).eq('latest.published',true).is('latest.archived_at',null)
+                        .order('content_updated_at',{referencedTable:'latest',ascending:false,nullsFirst:false})
+                        .limit(1,{referencedTable:'latest'}).order('id').range(offset,offset+499);
+                    if(error)throw error;
+                    for(const row of data) {
+                        const count=row.ark_chapters?.[0]?.count;
+                        if(Number.isInteger(count) && count>=0)result[row.id]={count,updatedAt:row.latest?.[0]?.content_updated_at || null};
+                    }
+                    if(data.length<500)break;
+                }
+                this.availability=result;
+            } catch(_) {this.availabilityError='Disponibilidade indisponível no momento.';}
+            finally {this.availabilityBusy=false;}
+        },
+        availabilityLabel(work) {
+            const count=this.availability[work.id]?.count;
+            return Number.isInteger(count)?count>0?count+' '+(count===1?'capítulo disponível':'capítulos disponíveis'):'Sem capítulos na biblioteca':'Disponibilidade a confirmar';
+        },
         catalogViewStorageKey(){return 'ark-catalog-view:'+(this.userSession?.user?.id || 'guest');},
         rememberCatalogView(){
             if(this.readingWork || this._restoringCatalogView || this.currentWorkSlug())return;
-            const snapshot={query:this.localSearch || '',filter:this.currentFilter || 'Todos',sort:this.catalogSort || 'recent',view:this.catalogView || 'grid',type:this.discoveryType,genre:this.discoveryGenre,language:this.discoveryLanguage,limit:this.catalogLimit,scrollY:Number(window.scrollY)||0};
+            const snapshot={query:this.localSearch || '',filter:this.currentFilter || 'Todos',sort:this.catalogSort || 'recent',view:this.catalogView || 'grid',type:this.discoveryType,genre:this.discoveryGenre,language:this.discoveryLanguage,available:this.discoveryAvailable,limit:this.catalogLimit,scrollY:Number(window.scrollY)||0};
             try{sessionStorage.setItem(this.catalogViewStorageKey(),JSON.stringify(snapshot));}catch(_){}
         },
         async restoreCatalogView(){
@@ -73,7 +136,7 @@ window.discoveryMixin = {
             try{
                 this.localSearch=text(saved.query);this.currentFilter=uid && ['Todos','lendo','lido','pretendo','favoritos'].includes(saved.filter)?saved.filter:'Todos';
                 this.catalogSort=['recent','title'].includes(saved.sort)?saved.sort:'recent';this.catalogView=saved.view==='list'?'list':'grid';
-                this.discoveryType=text(saved.type);this.discoveryGenre=text(saved.genre);this.discoveryLanguage=text(saved.language);
+                this.discoveryType=text(saved.type);this.discoveryGenre=text(saved.genre);this.discoveryLanguage=text(saved.language);this.discoveryAvailable=saved.available===true;
                 await this.$nextTick();if(uid!==this.userSession?.user?.id || request!==this._catalogViewRequest)return;
                 this.catalogLimit=Math.max(24,Math.min(10000,Number(saved.limit)||24));await this.$nextTick();
                 if(uid!==this.userSession?.user?.id || this.readingWork || this.currentWorkSlug() || request!==this._catalogViewRequest)return;
@@ -85,9 +148,10 @@ window.discoveryMixin = {
             const searchable=norm([item.title,item.author,item.type,this.languageLabel(item.reading_language),...(item.genres||[])].join(' '));
             return (!query || window.ArkDiscovery.matchesSearch(query,searchable,item.title)) &&
                 (!this.discoveryType || item.type===this.discoveryType) && (!this.discoveryGenre || item.genres?.includes(this.discoveryGenre)) &&
-                (!this.discoveryLanguage || item.reading_language===this.discoveryLanguage);
+                (!this.discoveryLanguage || item.reading_language===this.discoveryLanguage) &&
+                (!this.discoveryAvailable || this.availability[item.id]?.count>0);
         },
-        clearDiscoveryFilters() { this.discoveryType='';this.discoveryGenre='';this.discoveryLanguage='';this.localSearch='';this.currentFilter='Todos'; },
+        clearDiscoveryFilters() { this.discoveryType='';this.discoveryGenre='';this.discoveryLanguage='';this.discoveryAvailable=false;this.localSearch='';this.currentFilter='Todos'; },
         saveAtmosphere() { try {localStorage.setItem('ark-atmosphere',JSON.stringify({level:this.ambientLevel,motion:this.ambientMotion}));} catch(_){} },
         currentWorkSlug() {
             const path=window.location.hash.startsWith('#/obra/')?window.location.hash.slice(1):window.location.pathname;

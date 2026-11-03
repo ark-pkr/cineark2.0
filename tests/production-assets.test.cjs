@@ -6,7 +6,7 @@ const vm=require('node:vm');
 test('initial runtime and styles load exclusively from local public files',()=>{
     const html=fs.readFileSync('public/index.html','utf8');
     for(const match of html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"]+)"/g)) {
-        const url=match[1];if(url==='manifest.json')continue;
+        const url=match[1];if(url==='manifest.json' || /\brel="canonical"/.test(match[0]))continue;
         assert.equal(/^https?:\/\//.test(url),false,'External startup dependency: '+url);
         assert.equal(fs.existsSync(path.join('public',url)),true,url);
     }

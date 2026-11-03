@@ -196,12 +196,12 @@ test('missing database columns keep the Portuguese synopsis and show inline setu
         alert() { throw new Error('Database errors must not use blocking alerts'); },
         _supabase: { from: () => ({ insert: () => ({ select: () => ({ single: async () => ({ data: null, error: { code: 'PGRST204' } }) }) }) }) } };
     context.crypto=require('node:crypto').webcrypto;
-    vm.createContext(context);vm.runInContext(fs.readFileSync('public/assets/js/discovery.js','utf8'),context);
+    vm.createContext(context);vm.runInContext(fs.readFileSync('public/assets/js/discovery.js','utf8'),context);vm.runInContext(fs.readFileSync('public/assets/js/ai-discovery.js','utf8'),context);
     const options = vm.runInContext('(' + html.slice(start, end) + ')', context);
-    const app = { ...options.data(), ...options.methods, isAdmin: true, synopsisTranslating: false,
+    const app = { ...options.data(), ...options.methods, ...context.window.aiDiscoveryMixin.methods, isAdmin: true, synopsisTranslating: false,
         userSession: { user: { id: 'admin' } }, cancelMetadataSearch() {} };
     app.newItem.title = 'Solo Leveling'; app.newItem.synopsis = 'Caçadores protegem a humanidade.';
     await app.saveEntry();
-    assert.equal(app.catalogSchemaMissing, true); assert.match(app.catalogSaveError, /campos de sinopse/);
+    assert.equal(app.catalogSchemaMissing, true); assert.match(app.catalogSaveError, /sinopse ou temas revisados/);
     assert.equal(app.catalogSaving, false); assert.equal(app.newItem.synopsis, 'Caçadores protegem a humanidade.');
 });

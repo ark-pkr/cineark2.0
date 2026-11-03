@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v71-lean-icons';
+const CACHE_NAME = 'cine-ark-v72-registered';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
 const LOCAL_DEPENDENCIES = /* local-assets:start */ [
@@ -81,20 +81,28 @@ self.addEventListener('fetch', event => {
             (async () => {
                 const cache = await caches.open(IMAGE_CACHE),
                     cached = await cache.match(event.request);
-                if (cached) return cached;
-                const response = await fetch(event.request);
-                if (response.ok || response.type === 'opaque') {
-                    try {
-                        await cache.put(event.request, response.clone());
-                        const keys = await cache.keys();
-                        await Promise.all(
-                            keys.slice(0, Math.max(0, keys.length - IMAGE_LIMIT)).map(key => cache.delete(key))
-                        );
-                    } catch (_) {
-                        /* Storage pressure must not break a successful image request. */
+                // Stale-while-revalidate: an opaque (cross-origin) failure cannot be detected, so cached
+                // entries are always refreshed; re-putting also moves the entry to the end for LRU eviction.
+                const network = fetch(event.request).then(async response => {
+                    if (response.ok || response.type === 'opaque') {
+                        try {
+                            await cache.delete(event.request);
+                            await cache.put(event.request, response.clone());
+                            const keys = await cache.keys();
+                            await Promise.all(
+                                keys.slice(0, Math.max(0, keys.length - IMAGE_LIMIT)).map(key => cache.delete(key))
+                            );
+                        } catch (_) {
+                            /* Storage pressure must not break a successful image request. */
+                        }
                     }
+                    return response;
+                });
+                if (cached) {
+                    event.waitUntil(network.catch(() => {}));
+                    return cached;
                 }
-                return response;
+                return network;
             })()
         );
         return;

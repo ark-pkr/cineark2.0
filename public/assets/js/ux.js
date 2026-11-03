@@ -207,3 +207,11 @@ window.ArkUX = (() => {
         }
     };
 })();
+/* Offline app shell and image cache. Skipped where service workers are unavailable (file://, old browsers, tests). */
+window.ArkUX.registerServiceWorker = (nav = window.navigator, loc = window.location) => {
+    if (!nav?.serviceWorker || !['https:', 'http:'].includes(loc?.protocol)) return Promise.resolve(null);
+    // Absolute path: work pages (/obra/:slug) use <base href="/"> and the worker must control the whole site.
+    return nav.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => null);
+};
+if (typeof window.addEventListener === 'function')
+    window.addEventListener('load', () => window.ArkUX.registerServiceWorker());

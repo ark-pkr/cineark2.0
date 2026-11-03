@@ -138,3 +138,14 @@ test('failed cover keeps its layout, shows the title and recovers on a later loa
     assert.equal(img.style.visibility, '');
     assert.equal(fallback.removed, true);
 });
+test('service worker registers for the whole site and never breaks startup', async () => {
+    const { api } = setup();
+    const calls = [];
+    const nav = { serviceWorker: { register: async (...args) => (calls.push(args), 'registration') } };
+    assert.equal(await api.registerServiceWorker(nav, { protocol: 'https:' }), 'registration');
+    assert.equal(JSON.stringify(calls), JSON.stringify([['/sw.js', { scope: '/' }]]));
+    assert.equal(await api.registerServiceWorker({}, { protocol: 'https:' }), null);
+    assert.equal(await api.registerServiceWorker(nav, { protocol: 'file:' }), null);
+    const failing = { serviceWorker: { register: async () => Promise.reject(new Error('SecurityError')) } };
+    assert.equal(await api.registerServiceWorker(failing, { protocol: 'http:' }), null);
+});

@@ -1,3 +1,4 @@
+import { securityHeaders } from './security-headers.mjs';
 const escapeHTML = value =>
     String(value ?? '').replace(
         /[&<>"']/g,
@@ -142,7 +143,10 @@ export function createWorkPageHandler({ settings, loadTemplate, fetcher = fetch 
                     { status: 404, headers }
                 );
             const html = renderWorkPage(await loadTemplate(), work, url.origin);
-            return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers });
+            return new Response(request.method === 'HEAD' ? null : html, {
+                status: 200,
+                headers: { ...headers, ...securityHeaders(html, settings) }
+            });
         } catch (_) {
             return new Response('Não foi possível consultar esta obra agora. Tente novamente.', {
                 status: 503,

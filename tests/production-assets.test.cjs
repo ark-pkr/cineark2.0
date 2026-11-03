@@ -50,3 +50,13 @@ test('all icon and font stylesheet URLs resolve locally and production utilities
     assert.ok(sw.includes('./assets/vendor/vue/vue.global.prod.js'));
     assert.ok(sw.includes('./assets/css/utilities.css'));
 });
+test('every Font Awesome class referenced by the app ships in the subset stylesheet', () => {
+    const css = fs.readFileSync('public/assets/vendor/fontawesome/css/all.min.css', 'utf8');
+    const selectors = new Set(css.match(/\.fa-[a-z0-9-]+/g));
+    const sources = ['public/index.html', ...fs.readdirSync('public/assets/js').map(f => 'public/assets/js/' + f)];
+    for (const file of sources)
+        for (const [name] of fs.readFileSync(file, 'utf8').matchAll(/\bfa-[a-z0-9-]+/g))
+            assert.ok(selectors.has('.' + name), `${name} (${file}) is not a Font Awesome Free class`);
+    assert.doesNotMatch(css, /\.fab[,{]/, 'brand selector collides with the floating action button');
+    assert.doesNotMatch(css, /\.ttf/);
+});

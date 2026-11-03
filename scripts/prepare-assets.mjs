@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { compile, optimize } from '@tailwindcss/node';
 import { Scanner } from '@tailwindcss/oxide';
 import { FONT_FILES, ICON_FILES, VENDOR_FILES } from './vendor-assets.mjs';
+import { buildIconStylesheet, subsetIconFont, usedIconClasses } from './icon-assets.mjs';
+import * as prettier from 'prettier';
 const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const write = async (file, contents) => {
     const path = resolve(root, 'public', file);
@@ -17,12 +19,21 @@ const copy = async (source, dest) => {
 };
 await Promise.all([
     copy('vue/dist/vue.global.prod.js', 'assets/vendor/vue/vue.global.prod.js'),
-    copy('@supabase/supabase-js/dist/umd/supabase.js', 'assets/vendor/supabase/supabase.js'),
-    copy('@fortawesome/fontawesome-free/css/all.min.css', 'assets/vendor/fontawesome/css/all.min.css'),
-    ...ICON_FILES.map(file =>
-        copy('@fortawesome/fontawesome-free/webfonts/' + file, 'assets/vendor/fontawesome/webfonts/' + file)
-    )
+    copy('@supabase/supabase-js/dist/umd/supabase.js', 'assets/vendor/supabase/supabase.js')
 ]);
+// Only the icons referenced by the app ship: unknown names (e.g. Pro-only icons) fail the build.
+const faRoot = resolve(root, 'node_modules/@fortawesome/fontawesome-free');
+const icons = buildIconStylesheet(
+    await readFile(resolve(faRoot, 'css/all.min.css'), 'utf8'),
+    await usedIconClasses(root)
+);
+if (icons.missing.length) throw Error('Unknown Font Awesome Free classes: ' + icons.missing.join(', '));
+await write('assets/vendor/fontawesome/css/all.min.css', icons.css);
+for (const file of ICON_FILES)
+    await write(
+        'assets/vendor/fontawesome/webfonts/' + file,
+        await subsetIconFont(await readFile(resolve(faRoot, 'webfonts', file)), icons.codepoints)
+    );
 const fontSpecs = [
     ['poppins', 'Poppins', [400, 600, 700, 900], 'latin'],
     ['bangers', 'Bangers', [400], 'latin'],
@@ -65,11 +76,13 @@ await write('assets/css/utilities.css', optimize(css, { minify: true }).code);
 const swPath = resolve(root, 'public/sw.js');
 const sw = await readFile(swPath, 'utf8');
 const cached = JSON.stringify(['assets/css/utilities.css', ...VENDOR_FILES].map(file => './' + file));
+// Keep the generated list in the repository's formatting so `format:check` stays green after a build.
+const updatedSw = sw.replace(
+    /\/\* local-assets:start \*\/[\s\S]*?\/\* local-assets:end \*\//,
+    '/* local-assets:start */' + cached + '/* local-assets:end */'
+);
 await writeFile(
     swPath,
-    sw.replace(
-        /\/\* local-assets:start \*\/[\s\S]*?\/\* local-assets:end \*\//,
-        '/* local-assets:start */' + cached + '/* local-assets:end */'
-    )
+    await prettier.format(updatedSw, { ...(await prettier.resolveConfig(swPath)), filepath: swPath })
 );
 console.log('Prepared local production libraries, fonts, icons and utility CSS.');

@@ -264,7 +264,8 @@ window.ArkMetadata = (() => {
                 throw new Error(
                     'Não foi possível completar a consulta às fontes de mangás. ' +
                         error.message +
-                        ' Tente novamente ou preencha os dados manualmente.'
+                        ' Tente novamente ou preencha os dados manualmente.',
+                    { cause: error }
                 );
             }
         }

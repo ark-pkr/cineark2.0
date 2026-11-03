@@ -222,17 +222,15 @@ window.grimoireMixin = {
                 if (uid) {
                     const result = remove
                         ? await _supabase.from('ark_grimoires').delete().eq('user_id', uid).eq('id', collection.id)
-                        : await _supabase
-                              .from('ark_grimoires')
-                              .upsert(
-                                  {
-                                      id: collection.id,
-                                      user_id: uid,
-                                      name: collection.name,
-                                      work_ids: collection.work_ids
-                                  },
-                                  { onConflict: 'user_id,id' }
-                              );
+                        : await _supabase.from('ark_grimoires').upsert(
+                              {
+                                  id: collection.id,
+                                  user_id: uid,
+                                  name: collection.name,
+                                  work_ids: collection.work_ids
+                              },
+                              { onConflict: 'user_id,id' }
+                          );
                     if (result.error) throw result.error;
                 }
                 if (uid !== this.userSession?.user?.id || epoch !== this._grimoireEpoch) return false;

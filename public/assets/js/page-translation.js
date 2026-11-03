@@ -72,8 +72,8 @@ window.pageTranslationMixin = {
                 let result;
                 try {
                     result = await response.json();
-                } catch (_) {
-                    throw new Error('O servidor de tradução está indisponível.');
+                } catch (cause) {
+                    throw new Error('O servidor de tradução está indisponível.', { cause });
                 }
                 if (!response.ok) throw new Error(result.error || 'Não foi possível traduzir.');
                 if (!valid(result)) throw new Error('A tradução recebida está incompleta. Tente novamente.');

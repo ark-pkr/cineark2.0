@@ -8,9 +8,8 @@ export const FONT_FILES = [
     'metal-mania-latin-400-normal.woff2',
     'noto-sans-runic-runic-400-normal.woff2'
 ];
-export const ICON_FILES = ['fa-solid-900', 'fa-regular-400', 'fa-brands-400', 'fa-v4compatibility'].flatMap(name =>
-    ['woff2', 'ttf'].map(ext => `${name}.${ext}`)
-);
+// Subset at build time to the icons in use (see icon-assets.mjs); brands, v4 shims and TTF fallbacks are unused.
+export const ICON_FILES = ['fa-solid-900.woff2', 'fa-regular-400.woff2'];
 export const VENDOR_FILES = [
     'assets/vendor/vue/vue.global.prod.js',
     'assets/vendor/supabase/supabase.js',

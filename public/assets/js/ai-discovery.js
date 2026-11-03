@@ -128,11 +128,12 @@ window.aiDiscoveryMixin = {
                 let result;
                 try {
                     result = await response.json();
-                } catch (_) {
+                } catch (cause) {
                     throw Error(
                         response.status === 404
                             ? 'A busca com IA ainda não foi publicada neste servidor.'
-                            : 'O servidor de busca está indisponível. Use a busca por título.'
+                            : 'O servidor de busca está indisponível. Use a busca por título.',
+                        { cause }
                     );
                 }
                 if (!response.ok) {

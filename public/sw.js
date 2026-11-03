@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine-ark-v70-catalog-cards';
+const CACHE_NAME = 'cine-ark-v71-lean-icons';
 const IMAGE_CACHE = 'cine-ark-images-v2';
 const IMAGE_LIMIT = 80;
 const LOCAL_DEPENDENCIES = /* local-assets:start */ [
@@ -16,13 +16,7 @@ const LOCAL_DEPENDENCIES = /* local-assets:start */ [
     './assets/vendor/fonts/metal-mania-latin-400-normal.woff2',
     './assets/vendor/fonts/noto-sans-runic-runic-400-normal.woff2',
     './assets/vendor/fontawesome/webfonts/fa-solid-900.woff2',
-    './assets/vendor/fontawesome/webfonts/fa-solid-900.ttf',
-    './assets/vendor/fontawesome/webfonts/fa-regular-400.woff2',
-    './assets/vendor/fontawesome/webfonts/fa-regular-400.ttf',
-    './assets/vendor/fontawesome/webfonts/fa-brands-400.woff2',
-    './assets/vendor/fontawesome/webfonts/fa-brands-400.ttf',
-    './assets/vendor/fontawesome/webfonts/fa-v4compatibility.woff2',
-    './assets/vendor/fontawesome/webfonts/fa-v4compatibility.ttf'
+    './assets/vendor/fontawesome/webfonts/fa-regular-400.woff2'
 ]; /* local-assets:end */
 const ASSETS = [
     ...LOCAL_DEPENDENCIES,

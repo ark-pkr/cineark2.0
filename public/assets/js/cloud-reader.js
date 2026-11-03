@@ -170,7 +170,8 @@ window.ArkCloudReader = class {
                 message +
                     (cleanupFailed
                         ? ' Confira a lista antes de reenviar; pode ter restado um capítulo ou rascunho.'
-                        : ' Nenhum capítulo incompleto foi publicado.')
+                        : ' Nenhum capítulo incompleto foi publicado.'),
+                { cause: error }
             );
         }
     }

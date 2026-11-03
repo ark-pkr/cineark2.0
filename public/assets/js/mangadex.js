@@ -33,8 +33,8 @@ window.ArkMangaDex = class {
             let body;
             try {
                 body = await response.json();
-            } catch (_) {
-                throw new Error('O servidor MangaDex não está configurado corretamente.');
+            } catch (cause) {
+                throw new Error('O servidor MangaDex não está configurado corretamente.', { cause });
             }
             if (!response.ok || body.error) throw new Error(body.error || 'Não foi possível consultar o MangaDex.');
             if (this.cache.size >= 40) this.cache.delete(this.cache.keys().next().value);
@@ -43,9 +43,11 @@ window.ArkMangaDex = class {
         } catch (error) {
             if (signal?.aborted) throw new DOMException('Cancelado', 'AbortError');
             if (error instanceof TypeError)
-                throw new Error('O servidor MangaDex está indisponível. Verifique se a integração foi iniciada.');
+                throw new Error('O servidor MangaDex está indisponível. Verifique se a integração foi iniciada.', {
+                    cause: error
+                });
             if (error.name === 'AbortError')
-                throw new Error('MangaDex demorou para responder. Tente novamente mais tarde.');
+                throw new Error('MangaDex demorou para responder. Tente novamente mais tarde.', { cause: error });
             throw error;
         } finally {
             clearTimeout(timeout);

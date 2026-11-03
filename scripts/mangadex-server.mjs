@@ -9,73 +9,151 @@ import { createPageTranslator } from './page-translator.mjs';
 import { createWorkPageHandler } from './work-page.mjs';
 import { createGeminiDiscovery } from './gemini-discovery.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const publicRoot = resolve(root,'public');
-try { process.loadEnvFile(resolve(root, '.env.local')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+const publicRoot = resolve(root, 'public');
+try {
+    process.loadEnvFile(resolve(root, '.env.local'));
+} catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+}
 const publicConfig = { window: {} };
-vm.runInNewContext(await readFile(resolve(publicRoot,'assets/js/config.js'), 'utf8'), publicConfig);
+vm.runInNewContext(await readFile(resolve(publicRoot, 'assets/js/config.js'), 'utf8'), publicConfig);
 const settings = publicConfig.window.CINE_ARK_CONFIG;
-const discover = createGeminiDiscovery({supabaseUrl:settings.supabaseUrl,anonKey:settings.supabaseAnonKey,
-    apiKey:process.env.GEMINI_API_KEY,model:process.env.GEMINI_DISCOVERY_MODEL || 'gemini-3.5-flash-lite'});
-const translatePage = createPageTranslator({ supabaseUrl: settings.supabaseUrl, anonKey: settings.supabaseAnonKey,
-    bucket: settings.pagesBucket, apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite' });
+const discover = createGeminiDiscovery({
+    supabaseUrl: settings.supabaseUrl,
+    anonKey: settings.supabaseAnonKey,
+    apiKey: process.env.GEMINI_API_KEY,
+    model: process.env.GEMINI_DISCOVERY_MODEL || 'gemini-3.5-flash-lite'
+});
+const translatePage = createPageTranslator({
+    supabaseUrl: settings.supabaseUrl,
+    anonKey: settings.supabaseAnonKey,
+    bucket: settings.pagesBucket,
+    apiKey: process.env.GEMINI_API_KEY,
+    model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
+});
 const handler = createMangaDexProxy();
-const workPage = createWorkPageHandler({settings,loadTemplate:()=>readFile(resolve(publicRoot,'index.html'),'utf8')});
+const workPage = createWorkPageHandler({
+    settings,
+    loadTemplate: () => readFile(resolve(publicRoot, 'index.html'), 'utf8')
+});
 const port = Number(process.env.PORT || process.env.ARK_MANGADEX_PORT || 8787);
 const host = process.env.PORT ? '0.0.0.0' : '127.0.0.1';
 const publicOrigin = process.env.RENDER_EXTERNAL_URL ? new URL(process.env.RENDER_EXTERNAL_URL).origin : null;
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Porta inválida.');
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.png': 'image/png', '.woff2':'font/woff2', '.ttf':'font/ttf' };
+const types = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json',
+    '.txt': 'text/plain; charset=utf-8',
+    '.png': 'image/png',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf'
+};
 const publicFiles = new Set(PUBLIC_FILES);
 export const server = http.createServer(async (incoming, outgoing) => {
     try {
         const url = new URL(incoming.url, publicOrigin || `http://127.0.0.1:${port}`);
         if (url.pathname === '/api/discover') {
-            const parts=[];let size=0;
-            if(Number(incoming.headers['content-length'])>2048){outgoing.writeHead(413).end();incoming.resume();return;}
-            for await(const chunk of incoming.iterator({destroyOnReturn:false})){
-                size+=chunk.length;if(size>2048){outgoing.writeHead(413).end();incoming.resume();return;}parts.push(chunk);
+            const parts = [];
+            let size = 0;
+            if (Number(incoming.headers['content-length']) > 2048) {
+                outgoing.writeHead(413).end();
+                incoming.resume();
+                return;
             }
-            const response=await discover(new Request(url,{method:incoming.method,headers:incoming.headers,
-                ...(!['GET','HEAD'].includes(incoming.method)?{body:Buffer.concat(parts)}:{})}),{clientId:incoming.socket.remoteAddress || 'shared'});
-            outgoing.writeHead(response.status,Object.fromEntries(response.headers));outgoing.end(await response.text());return;
-        }
-        if (url.pathname.startsWith('/obra/') || url.pathname==='/sitemap.xml') {
-            const response=await workPage(new Request(url,{method:incoming.method}));
-            outgoing.writeHead(response.status,Object.fromEntries(response.headers));outgoing.end(await response.text());return;
-        }
-        if (url.pathname === '/api/translate-page') {
-            const parts = []; let size = 0;
-            if (Number(incoming.headers['content-length']) > 2048) { outgoing.writeHead(413).end(); incoming.resume(); return; }
             for await (const chunk of incoming.iterator({ destroyOnReturn: false })) {
                 size += chunk.length;
-                if (size > 2048) { outgoing.writeHead(413).end(); incoming.resume(); return; }
+                if (size > 2048) {
+                    outgoing.writeHead(413).end();
+                    incoming.resume();
+                    return;
+                }
                 parts.push(chunk);
             }
-            const response = await translatePage(new Request(url, { method: incoming.method, headers: incoming.headers,
-                ...(!['GET', 'HEAD'].includes(incoming.method) ? { body: Buffer.concat(parts) } : {}) }));
-            outgoing.writeHead(response.status, Object.fromEntries(response.headers)); outgoing.end(await response.text()); return;
+            const response = await discover(
+                new Request(url, {
+                    method: incoming.method,
+                    headers: incoming.headers,
+                    ...(!['GET', 'HEAD'].includes(incoming.method) ? { body: Buffer.concat(parts) } : {})
+                }),
+                { clientId: incoming.socket.remoteAddress || 'shared' }
+            );
+            outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+            outgoing.end(await response.text());
+            return;
+        }
+        if (url.pathname.startsWith('/obra/') || url.pathname === '/sitemap.xml') {
+            const response = await workPage(new Request(url, { method: incoming.method }));
+            outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+            outgoing.end(await response.text());
+            return;
+        }
+        if (url.pathname === '/api/translate-page') {
+            const parts = [];
+            let size = 0;
+            if (Number(incoming.headers['content-length']) > 2048) {
+                outgoing.writeHead(413).end();
+                incoming.resume();
+                return;
+            }
+            for await (const chunk of incoming.iterator({ destroyOnReturn: false })) {
+                size += chunk.length;
+                if (size > 2048) {
+                    outgoing.writeHead(413).end();
+                    incoming.resume();
+                    return;
+                }
+                parts.push(chunk);
+            }
+            const response = await translatePage(
+                new Request(url, {
+                    method: incoming.method,
+                    headers: incoming.headers,
+                    ...(!['GET', 'HEAD'].includes(incoming.method) ? { body: Buffer.concat(parts) } : {})
+                })
+            );
+            outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+            outgoing.end(await response.text());
+            return;
         }
         if (url.pathname === '/healthz' && incoming.method === 'GET') {
             outgoing.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            outgoing.end(JSON.stringify({ status: 'ok' })); return;
+            outgoing.end(JSON.stringify({ status: 'ok' }));
+            return;
         }
         if (url.pathname === '/mangadex') {
             const response = await handler(new Request(url, { method: incoming.method, headers: incoming.headers }));
             outgoing.writeHead(response.status, Object.fromEntries(response.headers));
-            if (response.body) for await (const chunk of response.body) {
-                if (outgoing.destroyed) break;
-                if (!outgoing.write(chunk)) await new Promise(resolve => outgoing.once('drain', resolve));
-            }
-            outgoing.end(); return;
+            if (response.body)
+                for await (const chunk of response.body) {
+                    if (outgoing.destroyed) break;
+                    if (!outgoing.write(chunk)) await new Promise(resolve => outgoing.once('drain', resolve));
+                }
+            outgoing.end();
+            return;
         }
-        if (incoming.method !== 'GET' && incoming.method !== 'HEAD') { outgoing.writeHead(405).end(); return; }
+        if (incoming.method !== 'GET' && incoming.method !== 'HEAD') {
+            outgoing.writeHead(405).end();
+            return;
+        }
         const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
-        if (!publicFiles.has(file)) { outgoing.writeHead(404).end('Not found'); return; }
+        if (!publicFiles.has(file)) {
+            outgoing.writeHead(404).end('Not found');
+            return;
+        }
         const data = await readFile(resolve(publicRoot, file));
         const extension = file.slice(file.lastIndexOf('.'));
-        outgoing.writeHead(200, { 'Content-Type': types[extension] || 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+        outgoing.writeHead(200, {
+            'Content-Type': types[extension] || 'application/octet-stream',
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff'
+        });
         outgoing.end(incoming.method === 'HEAD' ? undefined : data);
-    } catch (_) { if (!outgoing.headersSent) outgoing.writeHead(502); outgoing.end('Servidor indisponível'); }
+    } catch (_) {
+        if (!outgoing.headersSent) outgoing.writeHead(502);
+        outgoing.end('Servidor indisponível');
+    }
 });
 server.listen(port, host, () => console.log(`CINE ARK + MangaDex: ${publicOrigin || `http://${host}:${port}`}`));
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));

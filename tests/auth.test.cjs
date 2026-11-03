@@ -5,14 +5,28 @@ const vm = require('node:vm');
 
 function setup(auth = {}) {
     const storage = new Map();
-    const context = { window: { location: { href: 'http://localhost:8080/index.html?test=1#session' } }, indexedDB: { open: () => ({}) },
+    const context = {
+        window: { location: { href: 'http://localhost:8080/index.html?test=1#session' } },
+        indexedDB: { open: () => ({}) },
         localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
-        document: { body: { style: {} } }, URL: class extends URL { static revokeObjectURL() {} },
-        setTimeout: () => 0, clearTimeout: () => {}, _supabase: { auth } };
+        document: { body: { style: {} } },
+        URL: class extends URL {
+            static revokeObjectURL() {}
+        },
+        setTimeout: () => 0,
+        clearTimeout: () => {},
+        _supabase: { auth }
+    };
     vm.createContext(context);
-    for (const file of ['reader.js', 'auth.js']) vm.runInContext(fs.readFileSync('public/assets/js/' + file, 'utf8'), context);
-    const app = { userSession: null, ...context.window.readerMixin.data(), ...context.window.authMixin.data(),
-        ...context.window.readerMixin.methods, ...context.window.authMixin.methods };
+    for (const file of ['reader.js', 'auth.js'])
+        vm.runInContext(fs.readFileSync('public/assets/js/' + file, 'utf8'), context);
+    const app = {
+        userSession: null,
+        ...context.window.readerMixin.data(),
+        ...context.window.authMixin.data(),
+        ...context.window.readerMixin.methods,
+        ...context.window.authMixin.methods
+    };
     Object.defineProperty(app, 'isAdmin', { get: () => context.window.authMixin.computed.isAdmin.call(app) });
     return { app, storage };
 }
@@ -46,9 +60,19 @@ test('switching accounts restores their own progress and closes administrative v
 
 test('registration only submits display name and handles email confirmation', async () => {
     let payload;
-    const { app } = setup({ signUp: async value => { payload = value; return { data: { session: null }, error: null }; } });
+    const { app } = setup({
+        signUp: async value => {
+            payload = value;
+            return { data: { session: null }, error: null };
+        }
+    });
     app.openAuth('signup');
-    Object.assign(app, { authEmail: ' reader@example.com ', authPassword: 'strong-password', authConfirm: 'strong-password', authName: 'Reader' });
+    Object.assign(app, {
+        authEmail: ' reader@example.com ',
+        authPassword: 'strong-password',
+        authConfirm: 'strong-password',
+        authName: 'Reader'
+    });
     await app.submitAuth();
     assert.equal(payload.email, 'reader@example.com');
     assert.equal(payload.options.emailRedirectTo, 'http://localhost:8080/index.html');
@@ -60,16 +84,27 @@ test('registration only submits display name and handles email confirmation', as
 });
 
 test('invalid password confirmation makes no authentication request', async () => {
-    const { app } = setup({ signUp: () => { throw Error('must not be called'); } });
+    const { app } = setup({
+        signUp: () => {
+            throw Error('must not be called');
+        }
+    });
     app.openAuth('signup');
-    Object.assign(app, { authEmail: 'reader@example.com', authPassword: 'strong-password', authConfirm: 'different', authName: 'Reader' });
+    Object.assign(app, {
+        authEmail: 'reader@example.com',
+        authPassword: 'strong-password',
+        authConfirm: 'different',
+        authName: 'Reader'
+    });
     await app.submitAuth();
     assert.ok(app.authError);
 });
 
 test('failed login keeps form open and permits retry', async () => {
     const { app } = setup({ signInWithPassword: async () => ({ data: {}, error: { code: 'invalid_credentials' } }) });
-    app.openAuth(); app.authEmail = 'reader@example.com'; app.authPassword = 'wrong';
+    app.openAuth();
+    app.authEmail = 'reader@example.com';
+    app.authPassword = 'wrong';
     await app.submitAuth();
     assert.equal(app.authView, 'login');
     assert.match(app.authError, /incorretos/);
@@ -79,7 +114,9 @@ test('failed login keeps form open and permits retry', async () => {
 test('confirmation redirect preserves deployment subdirectories and removes session parameters', () => {
     const { app } = setup();
     assert.equal(app.authRedirectURL(), 'http://localhost:8080/index.html');
-    const context = { window: { location: { href: 'https://example.com/cineark2.0/?code=private#access_token=private' } } };
+    const context = {
+        window: { location: { href: 'https://example.com/cineark2.0/?code=private#access_token=private' } }
+    };
     vm.createContext(context);
     context.URL = URL;
     vm.runInContext(fs.readFileSync('public/assets/js/auth.js', 'utf8'), context);
@@ -93,10 +130,14 @@ test('confirmation redirect preserves deployment subdirectories and removes sess
 
 test('visitors can open published chapters and save guest progress without login or admin access', async () => {
     const { app, storage } = setup();
-    const chapter = {id:'chapter',number:1,source:'remote',published:true};
-    app.cloudAPI = () => ({chapters:async()=>[chapter], pages:async()=>[{width:100,height:200}], signedURLs:async()=>['https://example.com/page.png']});
-    app.$nextTick = async()=>{};
-    app.observePages = ()=>{};
+    const chapter = { id: 'chapter', number: 1, source: 'remote', published: true };
+    app.cloudAPI = () => ({
+        chapters: async () => [chapter],
+        pages: async () => [{ width: 100, height: 200 }],
+        signedURLs: async () => ['https://example.com/page.png']
+    });
+    app.$nextTick = async () => {};
+    app.observePages = () => {};
     await app.addChapter();
     await app.deleteChapter({ id: 'chapter' });
     await app.openWork({ id: 'work' });
@@ -104,9 +145,9 @@ test('visitors can open published chapters and save guest progress without login
     await app.openChapter(chapter);
     assert.equal(app.authView, null);
     assert.equal(app.activeChapter.id, 'chapter');
-    assert.equal(JSON.parse(storage.get('ark-reading')).work.chapterId,'chapter');
-    assert.equal(app.isAdmin,false);
-    assert.equal(storage.has('ark-reading:undefined'),false);
+    assert.equal(JSON.parse(storage.get('ark-reading')).work.chapterId, 'chapter');
+    assert.equal(app.isAdmin, false);
+    assert.equal(storage.has('ark-reading:undefined'), false);
 });
 
 test('inline application JavaScript parses', () => {

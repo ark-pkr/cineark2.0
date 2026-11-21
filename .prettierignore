@@ -1,0 +1,9 @@
+dist/
+node_modules/
+package-lock.json
+public/assets/vendor/
+public/assets/css/utilities.css
+# The in-DOM Vue template is whitespace-sensitive; format it by hand.
+public/index.html
+*.md
+*.sql

@@ -18,9 +18,12 @@ async function check(name, endpoint, summarize) {
         const response = await fetch(new URL(endpoint, base), { headers, signal: AbortSignal.timeout(10000) });
         if (!response.ok) {
             let code = null;
-            try { code = (await response.json()).code; } catch (_) {}
+            try {
+                code = (await response.json()).code;
+            } catch (_) {}
             console.log(JSON.stringify({ check: name, ok: false, status: response.status, code }));
-            process.exitCode = 1; return;
+            process.exitCode = 1;
+            return;
         }
         const data = await response.json();
         console.log(JSON.stringify({ check: name, ok: true, ...summarize(data) }));
@@ -30,7 +33,14 @@ async function check(name, endpoint, summarize) {
     }
 }
 Promise.all([
-    check('authentication', '/auth/v1/settings', data => ({ emailEnabled: data.external?.email,
-        signupDisabled: data.disable_signup, emailConfirmationRequired: !data.mailer_autoconfirm })),
+    check('authentication', '/auth/v1/settings', data => ({
+        emailEnabled: data.external?.email,
+        signupDisabled: data.disable_signup,
+        emailConfirmationRequired: !data.mailer_autoconfirm
+    })),
     check('catalog', '/rest/v1/itens_catalogo?select=id&limit=0', () => ({}))
-]).then(() => console.log('As verificações não alteram dados e não comprovam as políticas de escrita. Use também supabase/sql/verify-configuration.sql.'));
+]).then(() =>
+    console.log(
+        'As verificações não alteram dados e não comprovam as políticas de escrita. Use também supabase/sql/verify-configuration.sql.'
+    )
+);

@@ -3,8 +3,10 @@ const assert = require('node:assert/strict');
 const { once } = require('node:events');
 
 test('production server binds PORT, serves readiness and does not expose private files', async () => {
-    const oldPort = process.env.PORT, oldOrigin = process.env.RENDER_EXTERNAL_URL;
-    process.env.PORT = '18787'; process.env.RENDER_EXTERNAL_URL = 'https://cine-ark.example';
+    const oldPort = process.env.PORT,
+        oldOrigin = process.env.RENDER_EXTERNAL_URL;
+    process.env.PORT = '18787';
+    process.env.RENDER_EXTERNAL_URL = 'https://cine-ark.example';
     const { server } = await import('../scripts/mangadex-server.mjs');
     try {
         if (!server.listening) await once(server, 'listening');
@@ -12,23 +14,76 @@ test('production server binds PORT, serves readiness and does not expose private
         assert.equal((await fetch(base + '/healthz')).status, 200);
         assert.match(await (await fetch(base)).text(), /mangadex.js/);
         assert.equal((await fetch(base + '/assets/js/page-translation.js')).status, 200);
-        const {PUBLIC_FILES}=await import('../scripts/public-assets.mjs');
-        for(const file of PUBLIC_FILES) assert.equal((await fetch(base+'/'+file)).status,200,'Public asset: '+file);
-        assert.equal((await fetch(base+'/assets/vendor/fonts/poppins-latin-400-normal.woff2')).headers.get('content-type'),'font/woff2');
-        assert.equal((await fetch(base+'/api/discover',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"query":"curto"}'})).status,400);
-        assert.equal((await fetch(base+'/api/discover',{method:'POST',headers:{'Content-Type':'application/json'},body:'x'.repeat(3000)})).status,413);
-        assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
-        assert.equal((await fetch(base + '/api/translate-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'x'.repeat(3000) })).status, 413);
-        for (const path of ['/.env', '/.env.local', '/.git/config', '/supabase/config.toml', '/package.json','/public/index.html','/scripts/public-assets.mjs','/supabase/sql/personal-library.sql']) {
+        const { PUBLIC_FILES } = await import('../scripts/public-assets.mjs');
+        for (const file of PUBLIC_FILES)
+            assert.equal((await fetch(base + '/' + file)).status, 200, 'Public asset: ' + file);
+        assert.equal(
+            (await fetch(base + '/assets/vendor/fonts/poppins-latin-400-normal.woff2')).headers.get('content-type'),
+            'font/woff2'
+        );
+        assert.equal(
+            (
+                await fetch(base + '/api/discover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: '{"query":"curto"}'
+                })
+            ).status,
+            400
+        );
+        assert.equal(
+            (
+                await fetch(base + '/api/discover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: 'x'.repeat(3000)
+                })
+            ).status,
+            413
+        );
+        assert.equal(
+            (
+                await fetch(base + '/api/translate-page', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: '{}'
+                })
+            ).status,
+            401
+        );
+        assert.equal(
+            (
+                await fetch(base + '/api/translate-page', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: 'x'.repeat(3000)
+                })
+            ).status,
+            413
+        );
+        for (const path of [
+            '/.env',
+            '/.env.local',
+            '/.git/config',
+            '/supabase/config.toml',
+            '/package.json',
+            '/public/index.html',
+            '/scripts/public-assets.mjs',
+            '/supabase/sql/personal-library.sql'
+        ]) {
             assert.equal((await fetch(base + path)).status, 404);
         }
         // A same-origin HTTPS browser request must pass CORS behind Render's TLS proxy.
-        const response = await fetch(base + '/mangadex?op=unknown', { headers: { Origin: 'https://cine-ark.example' } });
+        const response = await fetch(base + '/mangadex?op=unknown', {
+            headers: { Origin: 'https://cine-ark.example' }
+        });
         assert.equal(response.status, 400);
         assert.equal(response.headers.get('Access-Control-Allow-Origin'), 'https://cine-ark.example');
     } finally {
         await new Promise(resolve => server.close(resolve));
-        if (oldPort === undefined) delete process.env.PORT; else process.env.PORT = oldPort;
-        if (oldOrigin === undefined) delete process.env.RENDER_EXTERNAL_URL; else process.env.RENDER_EXTERNAL_URL = oldOrigin;
+        if (oldPort === undefined) delete process.env.PORT;
+        else process.env.PORT = oldPort;
+        if (oldOrigin === undefined) delete process.env.RENDER_EXTERNAL_URL;
+        else process.env.RENDER_EXTERNAL_URL = oldOrigin;
     }
 });

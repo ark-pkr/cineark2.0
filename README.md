@@ -24,6 +24,10 @@ dist/                   Publicação gerada pelo build; não editar
 
 Instale as dependências com `npm ci`. Execute `npm start` para desenvolvimento com as rotas e APIs locais. Para gerar a pasta de publicação: `npm run build`. O Netlify usa essa mesma preparação automaticamente. Configure o Live Server para servir `public/` como raiz se preferir usá-lo.
 
+Antes de enviar alterações, rode `npm run verify` (lint, formatação, testes e build — o mesmo que o CI e o Netlify executam). `npm run format` aplica o Prettier e `npm run lint` roda o ESLint; o `public/index.html` fica fora do Prettier porque o template Vue é sensível a espaços. Ative o hook local com `npm run hooks:install`: ele verifica segredos, formatação e lint dos arquivos preparados para commit.
+
+Os ícones do Font Awesome são reduzidos no build aos que o código usa (`scripts/icon-assets.mjs`); um nome inexistente na versão gratuita interrompe o build. A Content-Security-Policy é gerada com os hashes dos scripts inline (`scripts/security-headers.mjs`) e está em modo _Report-Only_: confira o console do navegador em produção e, sem violações, troque `CSP_HEADER` para `Content-Security-Policy`.
+
 ## Usar
 
 Para a integração de capítulos do MangaDex, consulte [MANGADEX.md](docs/MANGADEX.md). O comando `node scripts/mangadex-server.mjs` serve o site e o intermediário de imagens local em `http://127.0.0.1:8787`. A aba MangaDex já está integrada ao leitor; o intermediário precisa estar em execução.

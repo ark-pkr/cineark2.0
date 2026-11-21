@@ -9,17 +9,27 @@
     "build": "node scripts/build-static.mjs",
     "start": "node scripts/mangadex-server.mjs",
     "test": "node --test --test-isolation=none tests/*.test.cjs",
-    "verify": "npm test && npm run build"
+    "verify": "npm run lint && npm run format:check && npm test && npm run build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@fontsource/bangers": "5.3.0",
     "@fontsource/metal-mania": "5.3.0",
     "@fontsource/noto-sans-runic": "5.3.0",
     "@fontsource/poppins": "5.3.0",
-    "@fortawesome/fontawesome-free": "6.0.0",
+    "@fortawesome/fontawesome-free": "6.7.2",
     "@supabase/supabase-js": "2.118.0",
     "@tailwindcss/node": "4.3.3",
     "@tailwindcss/oxide": "4.3.3",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
+    "subset-font": "2.9.0",
     "tailwindcss": "4.3.3",
     "vue": "3.5.44"
   }

@@ -1,127 +1,393 @@
-const {test}=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs'),vm=require('node:vm');
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs'),
+    vm = require('node:vm');
 
-test('local title search tolerates one typo, transposition or missing letter but keeps filters exact',()=>{
- const {app,helper}=setup();
- const work={title:'Solo Leveling',genres:['Ação'],type:'Manhwa',reading_language:'pt-br'};
- for(const query of ['solo levelign','solo levling','solo levelinh']){app.localSearch=query;assert.equal(app.matchesDiscovery(work),true,query);}
- app.discoveryGenre='Romance';assert.equal(app.matchesDiscovery(work),false);
- assert.equal(helper.matchesSearch('sola','solo leveling','Solo Leveling'),false);
- assert.equal(helper.matchesSearch('lezzling','solo leveling','Solo Leveling'),false);
+test('local title search tolerates one typo, transposition or missing letter but keeps filters exact', () => {
+    const { app, helper } = setup();
+    const work = { title: 'Solo Leveling', genres: ['Ação'], type: 'Manhwa', reading_language: 'pt-br' };
+    for (const query of ['solo levelign', 'solo levling', 'solo levelinh']) {
+        app.localSearch = query;
+        assert.equal(app.matchesDiscovery(work), true, query);
+    }
+    app.discoveryGenre = 'Romance';
+    assert.equal(app.matchesDiscovery(work), false);
+    assert.equal(helper.matchesSearch('sola', 'solo leveling', 'Solo Leveling'), false);
+    assert.equal(helper.matchesSearch('lezzling', 'solo leveling', 'Solo Leveling'), false);
+});
+
+test('available filter excludes unknown counts and empty works without trusting totalcount', () => {
+    const { app } = setup();
+    app.discoveryAvailable = true;
+    const work = { id: 'w', title: 'Work', totalcount: 100 };
+    assert.equal(app.matchesDiscovery(work), false);
+    app.availability.w = { count: 0 };
+    assert.equal(app.matchesDiscovery(work), false);
+    app.availability.w = { count: 3 };
+    assert.equal(app.matchesDiscovery(work), true);
+    app.clearDiscoveryFilters();
+    assert.equal(app.discoveryAvailable, false);
+});
+
+test('latest chapters omit works no longer in the catalog and open only published chapters', async () => {
+    const { app } = setup();
+    const work = { id: 'w', title: 'Book', type: 'Manhwa' };
+    app.catalog = [work];
+    app.latestChapters = [
+        { id: 'c', work_id: 'w' },
+        { id: 'gone', work_id: 'missing' }
+    ];
+    assert.equal(app.latestChapterEntries.length, 1);
+    let opened = null;
+    app.openWork = async item => {
+        app.readingWork = item;
+        app.chapters = [{ id: 'c', published: false }];
+    };
+    app.openChapter = async row => (opened = row);
+    app.chapterSavedPage = () => 0;
+    await app.openLatestChapter(app.latestChapterEntries[0]);
+    assert.equal(opened, null);
+    assert.ok(app.readerError);
+    app.openWork = async item => {
+        app.readingWork = item;
+        app.readerError = '';
+        app.chapters = [{ id: 'c', published: true }];
+    };
+    await app.openLatestChapter(app.latestChapterEntries[0]);
+    assert.equal(opened.id, 'c');
+});
+
+test('latest chapter opening stops when the account changes during loading', async () => {
+    const { app } = setup();
+    let opened = false;
+    app.openWork = async work => {
+        app.readingWork = work;
+        app.userSession = { user: { id: 'other' } };
+    };
+    app.openChapter = async () => (opened = true);
+    await app.openLatestChapter({ work: { id: 'w' }, chapter: { id: 'c' } });
+    assert.equal(opened, false);
+});
+
+test('availability failures keep unknown works unconfirmed and allow a retry', async () => {
+    const { app } = setup();
+    app.cloudAPI = () => ({
+        client: {
+            from() {
+                throw Error('offline');
+            }
+        }
+    });
+    await app.loadCatalogAvailability();
+    assert.ok(app.availabilityError);
+    assert.equal(app.availabilityBusy, false);
+    assert.equal(Object.keys(app.availability).length, 0);
+});
+
+test('work metadata replaces home metadata instead of duplicating canonical and description', async () => {
+    const { renderWorkPage } = await import('../scripts/work-page.mjs');
+    const html = renderWorkPage(
+        fs.readFileSync('public/index.html', 'utf8'),
+        { title: 'Example', slug: 'example', synopsis: 'A story' },
+        'https://cineark.com.br'
+    );
+    assert.equal((html.match(/rel="canonical"/g) || []).length, 1);
+    assert.equal((html.match(/name="description"/g) || []).length, 1);
+    assert.match(html, /og:url" content="https:\/\/cineark.com.br\/obra\/example/);
+    assert.match(html, /og:image" content="https:\/\/cineark.com.br\/assets\/images\/icone.png/);
 });
 function setup() {
- const storage=new Map();const context={window:{location:{hostname:'cineark.com.br',origin:'https://cineark.com.br',pathname:'/',hash:''}},URL,AbortController,
-  sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},setTimeout,clearTimeout,document:{querySelector:()=>null},navigator:{}};
- vm.createContext(context);vm.runInContext(fs.readFileSync('public/assets/js/discovery.js','utf8'),context);
- const mixin=context.window.discoveryMixin;
- const app={...mixin.data(),...mixin.methods,catalog:[],$nextTick:async fn=>fn?.(),personalLibrary:{},readingProgress:{},userSession:{user:{id:'a'}},localSearch:'',
-  languageLabel:code=>code==='pt-br'?'Português Brasil':code,activeChapter:null};
- for(const [name,fn] of Object.entries(mixin.computed))Object.defineProperty(app,name,{get:()=>fn.call(app)});
- return {app,context,storage,helper:context.window.ArkDiscovery};
+    const storage = new Map();
+    const context = {
+        window: { location: { hostname: 'cineark.com.br', origin: 'https://cineark.com.br', pathname: '/', hash: '' } },
+        URL,
+        AbortController,
+        sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+        localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+        setTimeout,
+        clearTimeout,
+        document: { querySelector: () => null },
+        navigator: {}
+    };
+    vm.createContext(context);
+    vm.runInContext(fs.readFileSync('public/assets/js/discovery.js', 'utf8'), context);
+    const mixin = context.window.discoveryMixin;
+    const app = {
+        ...mixin.data(),
+        ...mixin.methods,
+        catalog: [],
+        $nextTick: async fn => fn?.(),
+        personalLibrary: {},
+        readingProgress: {},
+        userSession: { user: { id: 'a' } },
+        localSearch: '',
+        languageLabel: code => (code === 'pt-br' ? 'Português Brasil' : code),
+        activeChapter: null
+    };
+    for (const [name, fn] of Object.entries(mixin.computed))
+        Object.defineProperty(app, name, { get: () => fn.call(app) });
+    return { app, context, storage, helper: context.window.ArkDiscovery };
 }
-test('discovery combines accent-insensitive search, type, genre and preferred language',()=>{
- const {app}=setup();app.localSearch='fantasia portugues';app.discoveryType='Manhwa';app.discoveryGenre='Fantasia';app.discoveryLanguage='pt-br';
- const row={title:'Jornada',type:'Manhwa',genres:['Fantasia'],reading_language:'pt-br'};
- assert.equal(app.matchesDiscovery(row),true);assert.equal(app.matchesDiscovery({...row,reading_language:'en'}),false);
- app.clearDiscoveryFilters();assert.equal(app.currentFilter,'Todos');assert.equal(app.localSearch,'');
+test('discovery combines accent-insensitive search, type, genre and preferred language', () => {
+    const { app } = setup();
+    app.localSearch = 'fantasia portugues';
+    app.discoveryType = 'Manhwa';
+    app.discoveryGenre = 'Fantasia';
+    app.discoveryLanguage = 'pt-br';
+    const row = { title: 'Jornada', type: 'Manhwa', genres: ['Fantasia'], reading_language: 'pt-br' };
+    assert.equal(app.matchesDiscovery(row), true);
+    assert.equal(app.matchesDiscovery({ ...row, reading_language: 'en' }), false);
+    app.clearDiscoveryFilters();
+    assert.equal(app.currentFilter, 'Todos');
+    assert.equal(app.localSearch, '');
 });
-test('related works use actual genre overlap and never recommend the current work',()=>{
- const {helper}=setup();const current={id:'a',genres:['Ação','Fantasia']};
- const rows=[current,{id:'b',title:'B',genres:['Ação']},{id:'c',title:'C',genres:['Fantasia','Ação']},{id:'d',title:'D',genres:['Romance']}];
- const result=helper.related(current,rows);assert.equal(result.length,2);assert.equal(result[0].id,'c');assert.equal(result.some(row=>row.id==='a'),false);
- assert.equal(helper.related({id:'x',genres:[]},rows).length,0);
+test('related works use actual genre overlap and never recommend the current work', () => {
+    const { helper } = setup();
+    const current = { id: 'a', genres: ['Ação', 'Fantasia'] };
+    const rows = [
+        current,
+        { id: 'b', title: 'B', genres: ['Ação'] },
+        { id: 'c', title: 'C', genres: ['Fantasia', 'Ação'] },
+        { id: 'd', title: 'D', genres: ['Romance'] }
+    ];
+    const result = helper.related(current, rows);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].id, 'c');
+    assert.equal(
+        result.some(row => row.id === 'a'),
+        false
+    );
+    assert.equal(helper.related({ id: 'x', genres: [] }, rows).length, 0);
 });
-test('ambient settings persist and become dimmer in reading and invisible in focus mode',()=>{
- const {app,storage}=setup();app.ambientLevel='medium';app.ambientMotion=false;app.saveAtmosphere();
- assert.equal(JSON.parse(storage.get('ark-atmosphere')).motion,false);assert.equal(app.ambientOpacity,.55);
- app.activeChapter={};assert.equal(app.ambientOpacity,.1375);app.readerFocus=true;assert.equal(app.ambientOpacity,0);
+test('ambient settings persist and become dimmer in reading and invisible in focus mode', () => {
+    const { app, storage } = setup();
+    app.ambientLevel = 'medium';
+    app.ambientMotion = false;
+    app.saveAtmosphere();
+    assert.equal(JSON.parse(storage.get('ark-atmosphere')).motion, false);
+    assert.equal(app.ambientOpacity, 0.55);
+    app.activeChapter = {};
+    assert.equal(app.ambientOpacity, 0.1375);
+    app.readerFocus = true;
+    assert.equal(app.ambientOpacity, 0);
 });
-test('favorite checks establish a baseline before reporting new chapter IDs',async()=>{
- const {app}=setup();app.catalog=[{id:'w',title:'Work'}];app.personalLibrary.w={favorite:true};let rows=[{id:'one',published:true}];
- app.cloudAPI=()=>({chapters:async()=>rows});await app.checkFavoriteUpdates();assert.equal(app.updates.w.newCount,0);
- rows=[...rows,{id:'two',published:true}];await app.checkFavoriteUpdates();assert.equal(app.updates.w.newCount,1);
- await app.checkFavoriteUpdates();assert.equal(app.updates.w.newCount,1);app.acknowledgeUpdates('w');assert.equal(app.updates.w.newCount,0);
+test('favorite checks establish a baseline before reporting new chapter IDs', async () => {
+    const { app } = setup();
+    app.catalog = [{ id: 'w', title: 'Work' }];
+    app.personalLibrary.w = { favorite: true };
+    let rows = [{ id: 'one', published: true }];
+    app.cloudAPI = () => ({ chapters: async () => rows });
+    await app.checkFavoriteUpdates();
+    assert.equal(app.updates.w.newCount, 0);
+    rows = [...rows, { id: 'two', published: true }];
+    await app.checkFavoriteUpdates();
+    assert.equal(app.updates.w.newCount, 1);
+    await app.checkFavoriteUpdates();
+    assert.equal(app.updates.w.newCount, 1);
+    app.acknowledgeUpdates('w');
+    assert.equal(app.updates.w.newCount, 0);
 });
-test('MangaDex update checks use a remembered edition and recent metadata only',async()=>{
- const {app,storage}=setup();app.catalog=[{id:'w',title:'Work'}];app.personalLibrary.w={favorite:true};
- storage.set('ark-mangadex-links:a',JSON.stringify({w:{id:'edition',language:'pt-br'}}));
- app.cloudAPI=()=>({chapters:async()=>[]});let request;
- app.mangaDexAPI=()=>({request:async(op,args)=>{request={op,args};return{data:[{id:'chapter'}]};}});
- await app.checkFavoriteUpdates();assert.equal(request.op,'feed');assert.equal(request.args.recent,1);assert.equal(request.args.language,'pt-br');assert.equal(app.updates.w.newCount,0);
+test('MangaDex update checks use a remembered edition and recent metadata only', async () => {
+    const { app, storage } = setup();
+    app.catalog = [{ id: 'w', title: 'Work' }];
+    app.personalLibrary.w = { favorite: true };
+    storage.set('ark-mangadex-links:a', JSON.stringify({ w: { id: 'edition', language: 'pt-br' } }));
+    app.cloudAPI = () => ({ chapters: async () => [] });
+    let request;
+    app.mangaDexAPI = () => ({
+        request: async (op, args) => {
+            request = { op, args };
+            return { data: [{ id: 'chapter' }] };
+        }
+    });
+    await app.checkFavoriteUpdates();
+    assert.equal(request.op, 'feed');
+    assert.equal(request.args.recent, 1);
+    assert.equal(request.args.language, 'pt-br');
+    assert.equal(app.updates.w.newCount, 0);
 });
-test('late update checks cannot populate another account or its storage',async()=>{
- const {app,storage}=setup();app.catalog=[{id:'w'}];app.personalLibrary.w={favorite:true};let finish;
- app.cloudAPI=()=>({chapters:()=>new Promise(resolve=>finish=resolve)});
- const pending=app.checkFavoriteUpdates();app.userSession={user:{id:'b'}};app.resetDiscoveryAccount();finish([{id:'private',published:true}]);await pending;
- assert.equal(Object.keys(app.updates).length,0);assert.equal(storage.has('ark-updates:b'),false);
+test('late update checks cannot populate another account or its storage', async () => {
+    const { app, storage } = setup();
+    app.catalog = [{ id: 'w' }];
+    app.personalLibrary.w = { favorite: true };
+    let finish;
+    app.cloudAPI = () => ({ chapters: () => new Promise(resolve => (finish = resolve)) });
+    const pending = app.checkFavoriteUpdates();
+    app.userSession = { user: { id: 'b' } };
+    app.resetDiscoveryAccount();
+    finish([{ id: 'private', published: true }]);
+    await pending;
+    assert.equal(Object.keys(app.updates).length, 0);
+    assert.equal(storage.has('ark-updates:b'), false);
 });
-test('unverified chapter counts are not treated as missing chapters',()=>{
- const {app}=setup();app.catalog=[{id:'w',poster:'https://example.com/a.jpg',synopsis:'Story'}];
- assert.equal(app.qualityCounts.noChapters,0);app.healthResults.w={count:0,cover:'ok'};assert.equal(app.qualityCounts.noChapters,1);
- app.healthFilter='chapters';assert.equal(app.matchesHealthFilter(app.catalog[0]),true);
+test('unverified chapter counts are not treated as missing chapters', () => {
+    const { app } = setup();
+    app.catalog = [{ id: 'w', poster: 'https://example.com/a.jpg', synopsis: 'Story' }];
+    assert.equal(app.qualityCounts.noChapters, 0);
+    app.healthResults.w = { count: 0, cover: 'ok' };
+    assert.equal(app.qualityCounts.noChapters, 1);
+    app.healthFilter = 'chapters';
+    assert.equal(app.matchesHealthFilter(app.catalog[0]), true);
 });
 
-test('favorite notices use actual newer content revisions and acknowledgement prevents repeat notices',async()=>{
- const {app}=setup();app.catalog=[{id:'w',title:'Work'}];app.personalLibrary={w:{favorite:true}};app.historyKey=(source,id,work)=>work+':'+source+':'+id;app.chapterHistory={'w:remote:c':{chapter_revision:1}};
- app.cloudAPI=()=>({chapters:async()=>[{id:'c',published:true,contentRevision:2}]});
- await app.checkFavoriteUpdates();assert.equal(app.updates.w.correctionCount,1);assert.equal(app.notificationCount,1);
- app.acknowledgeUpdates('w');assert.equal(app.notificationCount,0);await app.checkFavoriteUpdates();assert.equal(app.updates.w.correctionCount,0);
+test('favorite notices use actual newer content revisions and acknowledgement prevents repeat notices', async () => {
+    const { app } = setup();
+    app.catalog = [{ id: 'w', title: 'Work' }];
+    app.personalLibrary = { w: { favorite: true } };
+    app.historyKey = (source, id, work) => work + ':' + source + ':' + id;
+    app.chapterHistory = { 'w:remote:c': { chapter_revision: 1 } };
+    app.cloudAPI = () => ({ chapters: async () => [{ id: 'c', published: true, contentRevision: 2 }] });
+    await app.checkFavoriteUpdates();
+    assert.equal(app.updates.w.correctionCount, 1);
+    assert.equal(app.notificationCount, 1);
+    app.acknowledgeUpdates('w');
+    assert.equal(app.notificationCount, 0);
+    await app.checkFavoriteUpdates();
+    assert.equal(app.updates.w.correctionCount, 0);
 });
-test('local work links use a hash while public links use permanent routes',()=>{
- const {app,context}=setup();assert.equal(app.workRoute({slug:'solo-leveling'}),'/obra/solo-leveling');
- context.window.location.hostname='127.0.0.1';assert.equal(app.workRoute({slug:'solo-leveling'}),'/#/obra/solo-leveling');
- context.window.location.hash='#/obra/solo-leveling';assert.equal(app.currentWorkSlug(),'solo-leveling');
- context.window.location.pathname='/public/index.html';context.window.location.href='http://127.0.0.1:5500/public/index.html';
- assert.equal(app.workRoute({slug:'solo-leveling'}),'/public/#/obra/solo-leveling');assert.equal(app.homeRoute(),'/public/');
+test('local work links use a hash while public links use permanent routes', () => {
+    const { app, context } = setup();
+    assert.equal(app.workRoute({ slug: 'solo-leveling' }), '/obra/solo-leveling');
+    context.window.location.hostname = '127.0.0.1';
+    assert.equal(app.workRoute({ slug: 'solo-leveling' }), '/#/obra/solo-leveling');
+    context.window.location.hash = '#/obra/solo-leveling';
+    assert.equal(app.currentWorkSlug(), 'solo-leveling');
+    context.window.location.pathname = '/public/index.html';
+    context.window.location.href = 'http://127.0.0.1:5500/public/index.html';
+    assert.equal(app.workRoute({ slug: 'solo-leveling' }), '/public/#/obra/solo-leveling');
+    assert.equal(app.homeRoute(), '/public/');
 });
 
-test('catalog navigation restores filters, expanded results and scroll per account',async()=>{
- const {app,context,storage}=setup();let position;
- context.window.scrollY=1340;context.window.scrollTo=(x,y)=>position=y;
- Object.assign(app,{localSearch:'Solo',currentFilter:'favoritos',catalogSort:'title',catalogView:'list',discoveryType:'Manhwa',discoveryGenre:'Ação',discoveryLanguage:'pt-br',catalogLimit:96});
- app.rememberCatalogView();assert.ok(storage.has('ark-catalog-view:a'));
- Object.assign(app,{localSearch:'',catalogLimit:24,discoveryGenre:'',currentFilter:'Todos'});
- await app.restoreCatalogView();assert.equal(app.localSearch,'Solo');assert.equal(app.catalogLimit,96);assert.equal(app.currentFilter,'favoritos');assert.equal(app.discoveryGenre,'Ação');assert.equal(position,1340);
- app.userSession={user:{id:'b'}};app.localSearch='';await app.restoreCatalogView();assert.equal(app.localSearch,'');
+test('catalog navigation restores filters, expanded results and scroll per account', async () => {
+    const { app, context, storage } = setup();
+    let position;
+    context.window.scrollY = 1340;
+    context.window.scrollTo = (x, y) => (position = y);
+    Object.assign(app, {
+        localSearch: 'Solo',
+        currentFilter: 'favoritos',
+        catalogSort: 'title',
+        catalogView: 'list',
+        discoveryType: 'Manhwa',
+        discoveryGenre: 'Ação',
+        discoveryLanguage: 'pt-br',
+        catalogLimit: 96
+    });
+    app.rememberCatalogView();
+    assert.ok(storage.has('ark-catalog-view:a'));
+    Object.assign(app, { localSearch: '', catalogLimit: 24, discoveryGenre: '', currentFilter: 'Todos' });
+    await app.restoreCatalogView();
+    assert.equal(app.localSearch, 'Solo');
+    assert.equal(app.catalogLimit, 96);
+    assert.equal(app.currentFilter, 'favoritos');
+    assert.equal(app.discoveryGenre, 'Ação');
+    assert.equal(position, 1340);
+    app.userSession = { user: { id: 'b' } };
+    app.localSearch = '';
+    await app.restoreCatalogView();
+    assert.equal(app.localSearch, '');
 });
 
-test('view restoration never scrolls away from a direct work route',async()=>{
- const {app,context,storage}=setup();storage.set('ark-catalog-view:a',JSON.stringify({query:'Old',scrollY:2000}));
- context.window.location.pathname='/obra/test';context.window.scrollTo=()=>assert.fail('must not scroll a work route');
- await app.restoreCatalogView();assert.equal(app.localSearch,'');
+test('view restoration never scrolls away from a direct work route', async () => {
+    const { app, context, storage } = setup();
+    storage.set('ark-catalog-view:a', JSON.stringify({ query: 'Old', scrollY: 2000 }));
+    context.window.location.pathname = '/obra/test';
+    context.window.scrollTo = () => assert.fail('must not scroll a work route');
+    await app.restoreCatalogView();
+    assert.equal(app.localSearch, '');
 });
-test('public work pages render share metadata and escape untrusted catalog fields',async()=>{
- const {renderWorkPage}=await import('../scripts/work-page.mjs');
- const html=renderWorkPage('<html><head><title>Old</title><script src="reader.js"></script></head><body><div id="app"></div></body></html>',
-  {title:'Test <script>alert(1)</script>',slug:'test',synopsis:'A story',author:'"quoted"',genres:['Ação'],poster:'https://example.com/cover.jpg'},'https://cineark.com.br');
- assert.match(html,/og:title/);assert.match(html,/https:\/\/cineark.com.br\/obra\/test/);assert.match(html,/<base href="\/">/);
- assert.equal(html.includes('<script>alert(1)</script>'),false);assert.match(html,/\\u003cscript>/);assert.match(html,/id="ark-route-preview"/);
- assert.ok(html.indexOf('<base href="/">')<html.indexOf('<script src="reader.js">'));
+test('public work pages render share metadata and escape untrusted catalog fields', async () => {
+    const { renderWorkPage } = await import('../scripts/work-page.mjs');
+    const html = renderWorkPage(
+        '<html><head><title>Old</title><script src="reader.js"></script></head><body><div id="app"></div></body></html>',
+        {
+            title: 'Test <script>alert(1)</script>',
+            slug: 'test',
+            synopsis: 'A story',
+            author: '"quoted"',
+            genres: ['Ação'],
+            poster: 'https://example.com/cover.jpg'
+        },
+        'https://cineark.com.br'
+    );
+    assert.match(html, /og:title/);
+    assert.match(html, /https:\/\/cineark.com.br\/obra\/test/);
+    assert.match(html, /<base href="\/">/);
+    assert.equal(html.includes('<script>alert(1)</script>'), false);
+    assert.match(html, /\\u003cscript>/);
+    assert.match(html, /id="ark-route-preview"/);
+    assert.ok(html.indexOf('<base href="/">') < html.indexOf('<script src="reader.js">'));
 });
-test('work page handler fetches public metadata without forwarding auth and returns real 404s',async()=>{
- const {createWorkPageHandler}=await import('../scripts/work-page.mjs');let options,calls=0;
- const handler=createWorkPageHandler({settings:{supabaseUrl:'https://example.supabase.co',supabaseAnonKey:'public'},loadTemplate:async()=>'<head><title>Old</title></head><div id="app"></div>',
-  fetcher:async(url,args)=>{options=args;calls++;assert.equal(url.searchParams.get('slug'),'eq.test');return Response.json([]);}});
- const response=await handler(new Request('https://cineark.com.br/obra/test',{headers:{Authorization:'Bearer private',Cookie:'private'}}));
- assert.equal(response.status,404);assert.equal(options.headers.Authorization,undefined);assert.equal(options.headers.Cookie,undefined);
- assert.equal((await handler(new Request('https://cineark.com.br/obra/invalid%3Ctag'))).status,404);assert.equal(calls,1);
+test('work page handler fetches public metadata without forwarding auth and returns real 404s', async () => {
+    const { createWorkPageHandler } = await import('../scripts/work-page.mjs');
+    let options,
+        calls = 0;
+    const handler = createWorkPageHandler({
+        settings: { supabaseUrl: 'https://example.supabase.co', supabaseAnonKey: 'public' },
+        loadTemplate: async () => '<head><title>Old</title></head><div id="app"></div>',
+        fetcher: async (url, args) => {
+            options = args;
+            calls++;
+            assert.equal(url.searchParams.get('slug'), 'eq.test');
+            return Response.json([]);
+        }
+    });
+    const response = await handler(
+        new Request('https://cineark.com.br/obra/test', {
+            headers: { Authorization: 'Bearer private', Cookie: 'private' }
+        })
+    );
+    assert.equal(response.status, 404);
+    assert.equal(options.headers.Authorization, undefined);
+    assert.equal(options.headers.Cookie, undefined);
+    assert.equal((await handler(new Request('https://cineark.com.br/obra/invalid%3Ctag'))).status, 404);
+    assert.equal(calls, 1);
 });
-test('work page provider failures return retryable errors rather than false not-found pages',async()=>{
- const {createWorkPageHandler}=await import('../scripts/work-page.mjs');const handler=createWorkPageHandler({settings:{supabaseUrl:'https://example.supabase.co'},loadTemplate:async()=>'',fetcher:async()=>{throw Error('offline');}});
- const result=await handler(new Request('https://cineark.com.br/obra/test'));assert.equal(result.status,503);assert.equal(result.headers.get('Retry-After'),'30');
+test('work page provider failures return retryable errors rather than false not-found pages', async () => {
+    const { createWorkPageHandler } = await import('../scripts/work-page.mjs');
+    const handler = createWorkPageHandler({
+        settings: { supabaseUrl: 'https://example.supabase.co' },
+        loadTemplate: async () => '',
+        fetcher: async () => {
+            throw Error('offline');
+        }
+    });
+    const result = await handler(new Request('https://cineark.com.br/obra/test'));
+    assert.equal(result.status, 503);
+    assert.equal(result.headers.get('Retry-After'), '30');
 });
-test('sitemap includes public work routes and no personal data or authenticated requests',async()=>{
- const {createWorkPageHandler}=await import('../scripts/work-page.mjs');
- const handler=createWorkPageHandler({settings:{supabaseUrl:'https://example.supabase.co',supabaseAnonKey:'public'},fetcher:async(url,options)=>{
-  assert.equal(url.searchParams.get('select'),'slug');assert.equal(options.headers.Authorization,undefined);return Response.json([{slug:'solo-leveling'},{slug:'naruto'}]);
- }});
- const response=await handler(new Request('https://cineark.com.br/sitemap.xml'));const body=await response.text();
- assert.equal(response.status,200);assert.match(body,/https:\/\/cineark.com.br\/obra\/solo-leveling/);assert.equal((body.match(/<loc>/g)||[]).length,3);
+test('sitemap includes public work routes and no personal data or authenticated requests', async () => {
+    const { createWorkPageHandler } = await import('../scripts/work-page.mjs');
+    const handler = createWorkPageHandler({
+        settings: { supabaseUrl: 'https://example.supabase.co', supabaseAnonKey: 'public' },
+        fetcher: async (url, options) => {
+            assert.equal(url.searchParams.get('select'), 'slug');
+            assert.equal(options.headers.Authorization, undefined);
+            return Response.json([{ slug: 'solo-leveling' }, { slug: 'naruto' }]);
+        }
+    });
+    const response = await handler(new Request('https://cineark.com.br/sitemap.xml'));
+    const body = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(body, /https:\/\/cineark.com.br\/obra\/solo-leveling/);
+    assert.equal((body.match(/<loc>/g) || []).length, 3);
 });
-test('direct work route opens public details and refreshes them after signing in',async()=>{
- const {app,context}=setup();let calls=0;context.window.location.pathname='/obra/test';context.window.history={replaceState(){}};
- app.catalog=[{id:'w',slug:'test',title:'Work'}];app.userSession=null;app.openWork=async work=>{calls++;app.readingWork=work;};
- await app.restoreWorkRoute();assert.equal(app.readingWork.id,'w');assert.equal(calls,1);
- app.userSession={user:{id:'a'}};await app.restoreWorkRoute();assert.equal(calls,2);assert.equal(app._routeAuthenticated,true);
+test('direct work route opens public details and refreshes them after signing in', async () => {
+    const { app, context } = setup();
+    let calls = 0;
+    context.window.location.pathname = '/obra/test';
+    context.window.history = { replaceState() {} };
+    app.catalog = [{ id: 'w', slug: 'test', title: 'Work' }];
+    app.userSession = null;
+    app.openWork = async work => {
+        calls++;
+        app.readingWork = work;
+    };
+    await app.restoreWorkRoute();
+    assert.equal(app.readingWork.id, 'w');
+    assert.equal(calls, 1);
+    app.userSession = { user: { id: 'a' } };
+    await app.restoreWorkRoute();
+    assert.equal(calls, 2);
+    assert.equal(app._routeAuthenticated, true);
 });

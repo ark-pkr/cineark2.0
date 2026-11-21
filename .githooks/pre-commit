@@ -1,0 +1,8 @@
+#!/bin/sh
+# Enable once per clone: git config core.hooksPath .githooks
+set -e
+node scripts/check-secrets.mjs --staged
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+echo "$staged" | xargs npx --no-install prettier --check --ignore-unknown
+echo "$staged" | grep -E '\.(js|mjs|cjs)$' | xargs -r npx --no-install eslint --no-warn-ignored
